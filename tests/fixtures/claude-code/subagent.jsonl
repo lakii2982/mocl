@@ -1,0 +1,6 @@
+{"type": "system", "subtype": "init", "session_id": "0f7c1f0e-1111-4222-8333-944455556666", "claude_code_version": "2.1.310", "cwd": "/tmp/work", "model": "claude-sonnet-5", "permissionMode": "dontAsk", "tools": ["Read", "Grep", "Glob", "Agent", "Bash", "Write"], "agents": ["general-purpose"], "mcp_servers": [], "apiKeySource": "oauth"}
+{"type": "system", "subtype": "task_started", "task_id": "task_1", "tool_use_id": "toolu_9", "description": "explore repo", "subagent_type": "Explore", "spawn_depth": 1, "uuid": "t1", "session_id": "0f7c1f0e-1111-4222-8333-944455556666"}
+{"type": "system", "subtype": "task_updated", "task_id": "task_1", "patch": {"status": "running"}, "uuid": "t2", "session_id": "0f7c1f0e-1111-4222-8333-944455556666"}
+{"type": "assistant", "message": {"id": "msg_c", "role": "assistant", "content": [{"type": "text", "text": "child output"}]}, "parent_tool_use_id": "toolu_9", "uuid": "msg_c", "session_id": "0f7c1f0e-1111-4222-8333-944455556666"}
+{"type": "system", "subtype": "task_notification", "task_id": "task_1", "status": "completed", "output_file": "/tmp/out", "summary": "explored 3 files", "uuid": "t3", "session_id": "0f7c1f0e-1111-4222-8333-944455556666"}
+{"type": "result", "subtype": "success", "is_error": false, "result": "DONE", "usage": {"input_tokens": 1, "output_tokens": 1}, "session_id": "0f7c1f0e-1111-4222-8333-944455556666"}
