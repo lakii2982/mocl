@@ -208,6 +208,38 @@ export class SessionRegistry {
     return next;
   }
 
+  /**
+   * 回填远端会话 id（D-020：kimi CLI 首轮前 `remoteSessionId` 为空，首轮后才知道）。
+   *
+   * 约束：epoch **不变**（不是 fencing 事件）；已 bound 再调 → 幂等（一致直接返回，
+   * 不一致 `session.conflict`）；空 id 拒绝；原子写（临时文件 + rename）+ journal 追加。
+   */
+  async backfillRemoteId(childId: string, remoteSessionId: string): Promise<SessionRecord> {
+    const current = this.#records.get(childId);
+    if (current === undefined) {
+      throw moclError("session.not-found", { message: `session ${childId} not found in registry` });
+    }
+    if (typeof remoteSessionId !== "string" || remoteSessionId.length === 0) {
+      throw moclError("protocol.invalid-params", { message: "remoteSessionId must be a non-empty string" });
+    }
+    if (current.remoteSessionId === remoteSessionId) return current; // 幂等
+    if (current.remoteSessionId !== "") {
+      throw moclError("session.conflict", {
+        message: `session ${childId} already bound to ${current.remoteSessionId}; refusing backfill ${remoteSessionId}`,
+      });
+    }
+    const next: SessionRecord = { ...current, remoteSessionId };
+    this.#records.set(childId, next);
+    await mkdir(dirname(this.#path), { recursive: true });
+    await appendFile(
+      this.#journalPath,
+      JSON.stringify({ op: "upsert", at: new Date().toISOString(), record: next } satisfies JournalRecord) + "\n",
+      "utf8",
+    );
+    await this.#flushFile();
+    return next;
+  }
+
   async remove(childId: string): Promise<void> {
     if (!this.#records.delete(childId)) return;
     await mkdir(dirname(this.#path), { recursive: true });

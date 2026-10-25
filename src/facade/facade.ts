@@ -7,8 +7,10 @@
 import { randomUUID } from "node:crypto";
 import { isAbsolute, resolve } from "node:path";
 import type { BackendAdapter } from "../abi/adapter.ts";
-import type { BackendId, ErrorRef, InputBlock, PermissionProfile, SessionState } from "../abi/types.ts";
+import type { AdapterEvent } from "../abi/adapter.ts";
+import type { BackendId, ErrorRef, InputBlock, MoclEvent, PermissionProfile, SessionState, UsageRef } from "../abi/types.ts";
 import { Broker } from "../broker/broker.ts";
+import { EventBus } from "../bus/event-bus.ts";
 import { SessionRegistry } from "../broker/session-registry.ts";
 import type { RuntimeConfigProvider } from "../broker/concurrency.ts";
 import { moclError } from "../broker/errors.ts";
@@ -73,9 +75,16 @@ export interface StatusOutcome {
   readonly cursor: {
     readonly fromSeq: number;
     readonly lastSeq: number | null;
-    readonly events: 0;
+    readonly events: number;
+    readonly total: number;
     readonly note: string;
   };
+  readonly usage: UsageRef | null;
+  readonly degraded: boolean;
+  readonly parentDeliveries: number;
+  readonly lastEventType: string | null;
+  readonly warnings: readonly string[];
+  readonly error: ErrorRef | null;
   readonly progress: {
     readonly mode: "off" | "summary";
     readonly maxItemsPerTurn: number;
@@ -137,9 +146,17 @@ export class MoclFacade {
   readonly #runtime: RuntimeConfigProvider;
   readonly #broker: Broker;
   readonly #adapters = new Map<ConfigBackendId, BackendAdapter>();
-  readonly #remoteIds = new Map<string, string | null>();
   readonly #registryPath: string;
   readonly #clock: () => Date;
+  readonly #bus: EventBus;
+  readonly #consumers = new Map<string, { running: boolean }>();
+  readonly #terminal = new Map<string, SessionState>();
+  readonly #degraded = new Set<string>();
+  readonly #usage = new Map<string, UsageRef>();
+  readonly #seq = new Map<string, number>();
+  readonly #lastEventType = new Map<string, string>();
+  readonly #warnings = new Map<string, string[]>();
+  readonly #terminalError = new Map<string, ErrorRef>();
 
   private constructor(options: FacadeOptions, config: FacadeConfig, adapters: Map<ConfigBackendId, BackendAdapter>) {
     this.#config = config;
@@ -153,6 +170,16 @@ export class MoclFacade {
       adapters: [...adapters.values()],
       registry: new SessionRegistry({ path: this.#registryPath }),
       ...(options.clock === undefined ? {} : { clock: options.clock }),
+    });
+    this.#bus = new EventBus({
+      foldWindowMs: config.global.progress.samplingWindowMs,
+      parentProgress: {
+        mode: config.global.progress.mode,
+        maxItemsPerTurn: config.global.progress.maxItemsPerTurn,
+        maxCharsPerTurn: config.global.progress.maxCharsPerTurn,
+        maxCharsPerItem: config.global.progress.maxCharsPerItem,
+      },
+      clock: () => this.#clock().getTime(),
     });
   }
 
@@ -297,17 +324,19 @@ export class MoclFacade {
         permissionProfile: permissionMode,
         idempotencyKey: `${idempotencyKey}:open`,
       });
-      this.#remoteIds.set(opened.sessionId, opened.backendSessionId === "" ? null : opened.backendSessionId);
+      const adapter = this.#adapters.get(backend);
       try {
         const sent = await this.#broker.send(opened.sessionId, {
           input: [{ type: "text", text: task } satisfies InputBlock],
           idempotencyKey: `${idempotencyKey}:send`,
         });
+        if (adapter !== undefined) this.#startEventStream(opened.sessionId, backend, adapter, opened.epoch);
+        const backfilled = await this.#maybeBackfillRemoteId(opened.sessionId);
         return {
           childId: opened.sessionId,
           backend,
-          backendSessionId: opened.backendSessionId === "" ? null : opened.backendSessionId,
-          remoteIdState: idStateOf(opened.backendSessionId),
+          backendSessionId: backfilled,
+          remoteIdState: idStateOf(backfilled),
           epoch: opened.epoch,
           state: sent.state,
           turnId: sent.turnId,
@@ -315,6 +344,7 @@ export class MoclFacade {
         };
       } catch (error) {
         // 首轮失败：释放会话槽位，不留下半开状态。
+        this.#stopEventStream(opened.sessionId);
         try {
           await this.#broker.close(opened.sessionId, "failed");
         } catch {
@@ -335,7 +365,11 @@ export class MoclFacade {
         input: [{ type: "text", text: message } satisfies InputBlock],
         idempotencyKey: options.idempotencyKey ?? newClientRequestId(),
       });
-      return { childId, turnId: sent.turnId, state: sent.state, deduplicated: sent.deduplicated };
+      const status = await this.#broker.status(childId);
+      const backend = status.backend as ConfigBackendId;
+      const adapter = this.#adapters.get(backend);
+      if (adapter !== undefined) this.#startEventStream(childId, backend, adapter, status.epoch);
+      return { childId, turnId: sent.turnId, state: this.#terminal.get(childId) ?? sent.state, deduplicated: sent.deduplicated };
     });
   }
 
@@ -363,8 +397,19 @@ export class MoclFacade {
     return this.#guard(async () => {
       this.#requireGlobalEnabled();
       const resumed = await this.#broker.resume(childId, { idempotencyKey: newClientRequestId() });
-      const backendSessionId = resumed.backendSessionId === "" ? null : resumed.backendSessionId;
-      this.#remoteIds.set(childId, backendSessionId);
+      let backendSessionId = resumed.backendSessionId === "" ? null : resumed.backendSessionId;
+      if (backendSessionId !== null) {
+        try {
+          await this.#broker.registry.backfillRemoteId(childId, backendSessionId);
+        } catch {
+          // 已 bound 且一致（幂等）或冲突都保持 registry 现状；状态读取以 registry 为准。
+        }
+      }
+      const status = await this.#broker.status(childId);
+      const backend = status.backend as ConfigBackendId;
+      const adapter = this.#adapters.get(backend);
+      if (adapter !== undefined) this.#startEventStream(childId, backend, adapter, resumed.epoch);
+      backendSessionId = status.backendSessionId === "" ? null : status.backendSessionId;
       return {
         childId,
         backendSessionId,
@@ -387,8 +432,8 @@ export class MoclFacade {
   async close(childId: string): Promise<CloseOutcome> {
     return this.#guard(async () => {
       this.#requireGlobalEnabled();
+      this.#stopEventStream(childId);
       await this.#broker.close(childId, "operator");
-      this.#remoteIds.delete(childId);
       return { childId, closed: true };
     });
   }
@@ -397,24 +442,33 @@ export class MoclFacade {
     status: { sessionId: string; backend: BackendId; backendSessionId: string; state: SessionState; epoch: number; createdAt: string; lastTurnId: string | null; active: boolean },
     fromSeq: number,
   ): StatusOutcome {
-    const overlay = this.#remoteIds.get(status.sessionId);
-    const backendSessionId = overlay === undefined ? (status.backendSessionId === "" ? null : status.backendSessionId) : overlay;
+    const snapshot = this.#bus.snapshot(status.sessionId, fromSeq);
+    const busStats = this.#bus.stats(status.sessionId);
+    const backendSessionId = status.backendSessionId === "" ? null : status.backendSessionId;
+    const terminal = this.#terminal.get(status.sessionId);
     return {
       childId: status.sessionId,
       backend: status.backend as ConfigBackendId,
       backendSessionId,
       remoteIdState: idStateOf(backendSessionId),
-      state: status.state,
+      state: terminal ?? status.state,
       epoch: status.epoch,
       createdAt: status.createdAt,
       lastTurnId: status.lastTurnId,
       active: status.active,
       cursor: {
         fromSeq,
-        lastSeq: null,
-        events: 0,
-        note: "event stream wiring is deferred to C9 (broker.status snapshot only)",
+        lastSeq: snapshot.lastSeq === 0 ? null : snapshot.lastSeq,
+        events: snapshot.events.length,
+        total: busStats.ingested,
+        note: "event stream wired from adapter.events() → EventBus (C9)",
       },
+      usage: this.#usage.get(status.sessionId) ?? null,
+      degraded: this.#degraded.has(status.sessionId),
+      parentDeliveries: busStats.parentDeliveryCount,
+      lastEventType: this.#lastEventType.get(status.sessionId) ?? null,
+      warnings: this.#warnings.get(status.sessionId) ?? [],
+      error: this.#terminalError.get(status.sessionId) ?? null,
       progress: {
         mode: this.#config.global.progress.mode,
         maxItemsPerTurn: this.#config.global.progress.maxItemsPerTurn,
@@ -425,6 +479,107 @@ export class MoclFacade {
     };
   }
 
+  /** 适配器事件 → ABI 事件信封 → EventBus（单写者 seq；终态后停流）。 */
+  #startEventStream(childId: string, backend: ConfigBackendId, adapter: BackendAdapter, epoch: number): void {
+    const existing = this.#consumers.get(childId);
+    if (existing !== undefined && existing.running) return;
+    const controller = { running: true };
+    this.#consumers.set(childId, controller);
+    void (async () => {
+      try {
+        for await (const event of adapter.events()) {
+          if (!controller.running) break;
+          this.#ingestAdapterEvent(childId, backend, adapter, epoch, event);
+          if (isTerminalEventType(event.type)) {
+            this.#stopEventStream(childId);
+            break;
+          }
+        }
+      } catch {
+        // 事件流异常/结束：不影响控制面；status 仍可由后续 status/send 刷新。
+      } finally {
+        if (this.#consumers.get(childId) === controller) controller.running = false;
+      }
+    })();
+  }
+
+  #ingestAdapterEvent(
+    childId: string,
+    backend: ConfigBackendId,
+    adapter: BackendAdapter,
+    epoch: number,
+    event: AdapterEvent,
+  ): void {
+    const seq = (this.#seq.get(childId) ?? 0) + 1;
+    this.#seq.set(childId, seq);
+    const envelope = {
+      abiVersion: "0.1",
+      eventId: randomUUID(),
+      sessionId: childId,
+      seq,
+      epoch,
+      ts: this.#clock().toISOString(),
+      type: event.type,
+      backend: { id: backend, version: adapter.capabilities.backendVersion },
+      ...(event.turnId === undefined ? {} : { turnId: event.turnId }),
+      payload: event.payload,
+    } as unknown as MoclEvent;
+    this.#bus.ingest(envelope);
+    this.#lastEventType.set(childId, event.type);
+    if (event.type === "session.warning") {
+      const payload = event.payload as { readonly code?: string; readonly degrade?: boolean };
+      if (payload?.degrade === true) this.#degraded.add(childId);
+      if (typeof payload?.code === "string") {
+        const warnings = this.#warnings.get(childId) ?? [];
+        warnings.push(payload.code);
+        this.#warnings.set(childId, warnings);
+      }
+    }
+    if (event.type === "usage.updated") {
+      const payload = event.payload as { readonly usage?: UsageRef };
+      if (payload?.usage !== undefined) this.#usage.set(childId, payload.usage);
+    }
+    if (event.type === "turn.completed") {
+      const payload = event.payload as { readonly usage?: UsageRef };
+      if (payload?.usage !== undefined) this.#usage.set(childId, payload.usage);
+    }
+    if (event.type === "turn.failed") {
+      const payload = event.payload as { readonly error?: ErrorRef };
+      if (payload?.error !== undefined) this.#terminalError.set(childId, payload.error);
+    }
+    if (isTerminalEventType(event.type)) this.#terminal.set(childId, terminalStateOf(event.type));
+  }
+
+  #stopEventStream(childId: string): void {
+    const controller = this.#consumers.get(childId);
+    if (controller !== undefined) controller.running = false;
+    this.#consumers.delete(childId);
+    this.#bus.flush(childId);
+  }
+
+  /**
+   * D-020：kimi CLI 首轮后才有远端 id。只读探测适配器当前状态，
+   * 有值则**持久化回填**到 SessionRegistry（不再使用内存 overlay）。
+   */
+  async #maybeBackfillRemoteId(childId: string): Promise<string | null> {
+    await this.#broker.status(childId); // 确保 registry 已 load
+    const record = this.#broker.registry.get(childId);
+    if (record === undefined) return null;
+    if (record.remoteSessionId !== "") return record.remoteSessionId;
+    const adapter = this.#adapters.get(record.backend as ConfigBackendId);
+    if (adapter === undefined) return null;
+    try {
+      const probe = await adapter.resume({ sessionId: childId, remoteSessionId: "", fromSeq: 0 });
+      if (probe.exists && typeof probe.remoteSessionId === "string" && probe.remoteSessionId.length > 0) {
+        const updated = await this.#broker.registry.backfillRemoteId(childId, probe.remoteSessionId);
+        return updated.remoteSessionId;
+      }
+    } catch {
+      // 探测失败保持 pending（不伪造 bound）
+    }
+    return null;
+  }
+
   /** 对外统一包装：MoclError 透传，其余异常 → `internal.unexpected`。 */
   async #guard<T>(fn: () => Promise<T>): Promise<T> {
     try {
@@ -432,6 +587,23 @@ export class MoclFacade {
     } catch (error) {
       throw asMoclError(error);
     }
+  }
+}
+
+function isTerminalEventType(type: string): boolean {
+  return type === "turn.completed" || type === "turn.failed" || type === "turn.aborted" || type === "session.closed" || type === "session.archived";
+}
+
+function terminalStateOf(type: string): SessionState {
+  switch (type) {
+    case "turn.completed":
+      return "completed";
+    case "session.closed":
+      return "completed";
+    case "session.archived":
+      return "archived";
+    default:
+      return "aborted";
   }
 }
 

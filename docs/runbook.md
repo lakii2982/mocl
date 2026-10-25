@@ -211,3 +211,105 @@ cp /tmp/mocl-codex-bak/package.json /tmp/mocl-codex-bak/pnpm-lock.yaml "$P/"
    先按 §2.1 步骤 2 退出 DSH。**本次施工只执行 dry-run**，真升级由用户确认后执行。
 6. `--profile-root` / `--backup-root` / `--pnpm` / `--verify-script` 是测试与 CI 钩子，
    **不要**在真环境随意指向别处（指向错 profile 会备份/还原错误目录）。
+
+## 3. DSH 宿主安装（隔离 profile 验证 · C9）
+
+> 基线：DSH **0.2.1-rc.3**；宿主 API 升级需复核 `src/plugin/dsh-types.d.ts`。
+> **只使用隔离 profile `mocl-e2e`，绝不触碰 `desktop`**（desktop 由 Electron 独占，验证只读也受限）。
+
+### 3.1 一键有界尝试（8 分钟上限）
+
+```bash
+cd impl
+node scripts/assert-dsh-tool.mjs --bootstrap-profile
+```
+
+步骤（脚本内自动执行，任一失败/超时即 `SKIP:bootstrap-unavailable` + 手工步骤，exit 0）：
+
+1. `dsh --from-default-profile headless --profile mocl-e2e --dump-config`（首次创建；已存在则复用）；
+2. 生成 `e2e/tmp/plugin-package/`（`@mocl/dsh-plugin`，薄包装 `src/plugin/index.ts`）；
+3. `dsh plugin --profile mocl-e2e add file:$PWD/e2e/tmp/plugin-package`（本地 `file:`，不依赖 registry 网络）；
+4. `dsh --profile mocl-e2e --patch $PWD/patch/cordis.patch.yml --dump-config` 断言 `mocl` / `subagent_agent`；
+5. 校验 profile 内 `node_modules/@mocl/dsh-plugin` 存在（防止 dump 通过但包没装）。
+
+**预期输出（PASS）**：
+
+```text
+PASS static patch: ids=[mocl] legacy=4 tools=[subagent_agent,mocl_status]
+PASS bootstrap: profile created (~/.dsh/profiles/mocl-e2e)
+PASS bootstrap: @mocl/dsh-plugin installed into mocl-e2e
+PASS bootstrap: patch composed in mocl-e2e (id=mocl, tool=subagent_agent)
+PASS bootstrap: plugin package present in profile node_modules
+RESULT: PASS bootstrap (isolated profile mocl-e2e; live tool execution not asserted)
+```
+
+边界说明：bootstrap 只断言「profile 可创建 + 插件可安装 + patch 可组合」，**不断言工具真实执行**
+（真实执行需要模型凭据，属 `MOCL_LIVE=1` 的 E2E 档）。
+
+### 3.2 清理与失败处置
+
+```bash
+rm -rf ~/.dsh/profiles/mocl-e2e
+rm -rf impl/e2e/tmp/plugin-package
+```
+
+| 现象 | 处置 |
+|---|---|
+| `SKIP:bootstrap-unavailable (create-profile: …)` | DSH 版本/权限问题；按输出「手工步骤」逐条执行并保留原始 stderr |
+| `SKIP:bootstrap-unavailable (install-plugin: pnpm …)` | 本地 `file:` 安装失败；检查 pnpm 可用性，或手工 `dsh plugin --profile mocl-e2e add file:…` |
+| `dump missing id/tool` | patch 文件被改动；`node scripts/assert-dsh-tool.mjs` 静态断言先查 |
+| 误建/残留 profile | 按 3.2 清理命令删除；**不要删 `desktop`** |
+
+### 3.3 其它 profile
+
+```bash
+node scripts/assert-dsh-tool.mjs --profile <name>   # 只 dump-config 断言（不创建、不安装）
+```
+
+## 4. E2E 演练（C9 · E2E-1）
+
+### 4.1 离线档（CI 默认，零额度）
+
+```bash
+cd impl
+node e2e/pr-scenario.mjs        # 或 pnpm -s e2e
+```
+
+- 临时 git 仓库（2 文件 + 1 个失败脚本）→ `git worktree add` 隔离工作区 → 假 codex 适配器 →
+  `facade.open(..., permissionMode:"read-only")` → 轮询 `status()` 到终态；
+- 断言：`turn.completed`、父级投递 ≤1、无 degraded、usage 存在、worktree 内 `git status` 不变、
+  **worktree 外零写入**；
+- 产出 `e2e/out/report.json`（字段：`mode/status/backend/model/childId/state/events/usage/durationMs/
+  writesOutsideWorktree/assertions`）。`e2e/tmp/` 与 `e2e/out/` 已被 gitignore。
+- 预期末行：`RESULT: PASS (offline)`，exit 0；任一断言失败则 `RESULT: SKIP (failed)`/exit 1。
+
+### 4.2 live 档（真 codex，尽力而为）
+
+```bash
+MOCL_LIVE=1 node e2e/pr-scenario.mjs
+```
+
+前置：
+1. `codex --version` = 0.164.0（D-015 基线）；
+2. `~/.codex/auth.json` 可用（**不打印内容**）；
+3. 运行时并发来源：`MOCL_MAX_ACTIVE_SUBAGENTS` 或 `~/.dsh/profiles/desktop/cordis.patch.yml`
+   的 `maxActiveSubagents`（D-016；读不到则 `SKIP`，不猜默认）。
+
+结果语义（**不假绿**）：
+
+| 情况 | 结果 |
+|---|---|
+| 终态 `turn.completed` + 全部断言 PASS | `RESULT: PASS (live)` |
+| quota/rate-limit/auth/model 错误 | `RESULT: SKIP (skipped:quota)`，exit 0 |
+| 其它 live 失败（上游原因被适配器隐藏） | `RESULT: SKIP (skipped:host-unavailable)` + `warnings` 证据，exit 0 |
+| 写越权/断言失败且非 SKIP 情形 | `RESULT: SKIP (failed)`，exit 1 |
+
+> 本机 2026-10-26 实测：codex app-server 在 ~47s 后返回 `turn.failed`（`backend.internal-error`，
+> 直接 `codex exec` 也挂起 90s），因此 live 档记录为 `skipped:host-unavailable`；离线档保持 PASS。
+
+### 4.3 失败处置
+
+- `skipped:quota`：更换可用凭据/模型后重试；**不要**把 SKIP 当 PASS 写进演示结论；
+- `skipped:host-unavailable`：先手工 `codex exec --sandbox read-only --skip-git-repo-check "只回答 OK"`
+  自检；仍挂起则为宿主网络/配额问题；
+- 残留：`rm -rf impl/e2e/tmp/*`；报告在 `impl/e2e/out/report.json`（可保留作证据，不入库）。

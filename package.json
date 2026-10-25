@@ -14,7 +14,10 @@
     "validate": "node tools/validate-abi.mjs",
     "baseline:codex": "node scripts/assert-codex-baseline.mjs",
     "upgrade:codex": "node scripts/upgrade-dsh-codex-payload.mjs",
-    "assert:dsh-tool": "node scripts/assert-dsh-tool.mjs"
+    "assert:dsh-tool": "node scripts/assert-dsh-tool.mjs",
+    "e2e": "node e2e/pr-scenario.mjs",
+    "e2e:live": "MOCL_LIVE=1 node e2e/pr-scenario.mjs",
+    "assert:dsh-tool:bootstrap": "node scripts/assert-dsh-tool.mjs --bootstrap-profile"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",

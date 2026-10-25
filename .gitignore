@@ -4,3 +4,5 @@ coverage/
 *.tsbuildinfo
 .DS_Store
 var/
+e2e/tmp/
+e2e/out/
