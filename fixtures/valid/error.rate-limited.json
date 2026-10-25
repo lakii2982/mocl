@@ -1,0 +1,12 @@
+{
+  "code": "quota.rate-limited",
+  "category": "quota",
+  "message": "backend returned HTTP 429",
+  "retryable": "backoff",
+  "retryAfterMs": 2000,
+  "userMessage": "后端限流，正在退避重试",
+  "severity": "error",
+  "backend": { "id": "kimi", "version": "2.3.1" },
+  "details": { "kind": "rate-limit", "retryAttempt": 1 },
+  "traceId": "01J9ZR3C4D5E6F7G8H9J0K1M2N"
+}

@@ -1,0 +1,14 @@
+{
+  "abiVersion": "0.1",
+  "requestId": "req_01J9ZR4D5E6F7G8H9J0K1M2N3P",
+  "method": "session.send",
+  "sessionId": "sess_01J9ZQ8K3M4N5P6Q7R8S9T0V1W",
+  "clientRequestId": "01J9ZR4D5E6F7G8H9J0K1M2N3P",
+  "epoch": 1,
+  "requiredBits": ["streaming"],
+  "params": {
+    "input": [{ "type": "text", "text": "请只回复 OK" }],
+    "expect": "turn",
+    "delivery": "caller"
+  }
+}

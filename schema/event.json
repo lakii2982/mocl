@@ -1,0 +1,1765 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mocl.dev/abi/v0/event.json",
+  "title": "MoclEvent",
+  "description": "ABI v0 事件信封。顶层约束信封字段，oneOf 按 type 区分全部 35 个事件变体；事件名唯一登记表见 docs/abi/abi-v0.md §7，不变量 EV-1..EV-6 见 §5.2。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "abiVersion",
+    "eventId",
+    "sessionId",
+    "seq",
+    "epoch",
+    "ts",
+    "type",
+    "backend",
+    "payload"
+  ],
+  "properties": {
+    "abiVersion": {
+      "$ref": "#/$defs/abiVersion"
+    },
+    "eventId": {
+      "$ref": "#/$defs/eventId"
+    },
+    "sessionId": {
+      "$ref": "#/$defs/sessionId"
+    },
+    "turnId": {
+      "$ref": "#/$defs/turnId"
+    },
+    "seq": {
+      "$ref": "#/$defs/seq"
+    },
+    "epoch": {
+      "$ref": "#/$defs/epoch"
+    },
+    "ts": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "session.created",
+        "session.state-changed",
+        "session.recovered",
+        "session.lost",
+        "turn.started",
+        "turn.completed",
+        "turn.failed",
+        "turn.aborted",
+        "message.delta",
+        "message.completed",
+        "tool.started",
+        "tool.completed",
+        "permission.requested",
+        "permission.resolved",
+        "progress.folded",
+        "session.closed",
+        "session.archived",
+        "session.warning",
+        "turn.steered",
+        "turn.queued",
+        "message.started",
+        "reasoning.delta",
+        "reasoning.summary",
+        "tool.progress",
+        "tool.failed",
+        "plan.updated",
+        "diff.updated",
+        "usage.updated",
+        "input.requested",
+        "input.resolved",
+        "child.spawned",
+        "child.state-changed",
+        "child.completed",
+        "transport.state-changed",
+        "diagnostic.log"
+      ]
+    },
+    "backend": {
+      "$ref": "#/$defs/backendRef"
+    },
+    "payload": {}
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/onSessionCreated"
+    },
+    {
+      "$ref": "#/$defs/onSessionStateChanged"
+    },
+    {
+      "$ref": "#/$defs/onSessionRecovered"
+    },
+    {
+      "$ref": "#/$defs/onSessionLost"
+    },
+    {
+      "$ref": "#/$defs/onTurnStarted"
+    },
+    {
+      "$ref": "#/$defs/onTurnCompleted"
+    },
+    {
+      "$ref": "#/$defs/onTurnFailed"
+    },
+    {
+      "$ref": "#/$defs/onTurnAborted"
+    },
+    {
+      "$ref": "#/$defs/onMessageDelta"
+    },
+    {
+      "$ref": "#/$defs/onMessageCompleted"
+    },
+    {
+      "$ref": "#/$defs/onToolStarted"
+    },
+    {
+      "$ref": "#/$defs/onToolCompleted"
+    },
+    {
+      "$ref": "#/$defs/onPermissionRequested"
+    },
+    {
+      "$ref": "#/$defs/onPermissionResolved"
+    },
+    {
+      "$ref": "#/$defs/onProgressFolded"
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "session.closed"
+        },
+        "payload": {
+          "$ref": "#/$defs/payload_sessionClosed"
+        }
+      },
+      "required": [
+        "payload"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "session.archived"
+        },
+        "payload": {
+          "$ref": "#/$defs/payload_sessionArchived"
+        }
+      },
+      "required": [
+        "payload"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "session.warning"
+        },
+        "payload": {
+          "$ref": "#/$defs/payload_sessionWarning"
+        }
+      },
+      "required": [
+        "payload"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "turn.steered"
+        },
+        "payload": {
+          "$ref": "#/$defs/payload_turnSteered"
+        }
+      },
+      "required": [
+        "payload"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "turn.queued"
+        },
+        "payload": {
+          "$ref": "#/$defs/payload_turnQueued"
+        }
+      },
+      "required": [
+        "payload"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "message.started"
+        },
+        "payload": {
+          "$ref": "#/$defs/payload_messageStarted"
+        }
+      },
+      "required": [
+        "payload"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "reasoning.delta"
+        },
+        "payload": {
+          "$ref": "#/$defs/payload_reasoningDelta"
+        }
+      },
+      "required": [
+        "payload"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "reasoning.summary"
+        },
+        "payload": {
+          "$ref": "#/$defs/payload_reasoningSummary"
+        }
+      },
+      "required": [
+        "payload"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "tool.progress"
+        },
+        "payload": {
+          "$ref": "#/$defs/payload_toolProgress"
+        }
+      },
+      "required": [
+        "payload"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "tool.failed"
+        },
+        "payload": {
+          "$ref": "#/$defs/payload_toolFailed"
+        }
+      },
+      "required": [
+        "payload"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "plan.updated"
+        },
+        "payload": {
+          "$ref": "#/$defs/payload_planUpdated"
+        }
+      },
+      "required": [
+        "payload"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "diff.updated"
+        },
+        "payload": {
+          "$ref": "#/$defs/payload_diffUpdated"
+        }
+      },
+      "required": [
+        "payload"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "usage.updated"
+        },
+        "payload": {
+          "$ref": "#/$defs/payload_usageUpdated"
+        }
+      },
+      "required": [
+        "payload"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "input.requested"
+        },
+        "payload": {
+          "$ref": "#/$defs/payload_inputRequested"
+        }
+      },
+      "required": [
+        "payload"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "input.resolved"
+        },
+        "payload": {
+          "$ref": "#/$defs/payload_inputResolved"
+        }
+      },
+      "required": [
+        "payload"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "child.spawned"
+        },
+        "payload": {
+          "$ref": "#/$defs/payload_childSpawned"
+        }
+      },
+      "required": [
+        "payload"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "child.state-changed"
+        },
+        "payload": {
+          "$ref": "#/$defs/payload_childStateChanged"
+        }
+      },
+      "required": [
+        "payload"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "child.completed"
+        },
+        "payload": {
+          "$ref": "#/$defs/payload_childCompleted"
+        }
+      },
+      "required": [
+        "payload"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "transport.state-changed"
+        },
+        "payload": {
+          "$ref": "#/$defs/payload_transportStateChanged"
+        }
+      },
+      "required": [
+        "payload"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "diagnostic.log"
+        },
+        "payload": {
+          "$ref": "#/$defs/payload_diagnosticLog"
+        }
+      },
+      "required": [
+        "payload"
+      ]
+    }
+  ],
+  "$defs": {
+    "abiVersion": {
+      "type": "string",
+      "const": "0.1"
+    },
+    "eventId": {
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$",
+      "description": "ULID；全局唯一，事件去重主键（EV-2）。"
+    },
+    "sessionId": {
+      "type": "string",
+      "pattern": "^sess_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "turnId": {
+      "type": "string",
+      "pattern": "^turn_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "seq": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "会话内严格 +1 单调（EV-1），跨 epoch 不重置。"
+    },
+    "epoch": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "fencing token，只增（EV-3）。"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$"
+    },
+    "backendRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "enum": [
+            "codex",
+            "claude-code",
+            "kimi",
+            "opencode"
+          ]
+        },
+        "version": {
+          "type": "string",
+          "maxLength": 64
+        }
+      }
+    },
+    "errorRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "category",
+        "message",
+        "retryable",
+        "userMessage",
+        "severity"
+      ],
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "transport",
+            "auth",
+            "quota",
+            "protocol",
+            "process",
+            "capability",
+            "session",
+            "policy",
+            "storage",
+            "limit",
+            "security",
+            "internal"
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "retryable": {
+          "type": "string",
+          "enum": [
+            "no",
+            "once",
+            "backoff",
+            "after-recovery"
+          ]
+        },
+        "retryAfterMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "userMessage": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "warning",
+            "error",
+            "fatal"
+          ]
+        },
+        "traceId": {
+          "type": "string",
+          "maxLength": 64
+        }
+      }
+    },
+    "usageRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "estimated",
+        "scope"
+      ],
+      "properties": {
+        "inputTokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "outputTokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reasoningTokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "costUsd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "estimated": {
+          "type": "boolean"
+        },
+        "scope": {
+          "type": "string",
+          "enum": [
+            "turn",
+            "session"
+          ]
+        }
+      }
+    },
+    "envelopeProps": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+        "abiVersion": {
+          "$ref": "#/$defs/abiVersion"
+        },
+        "eventId": {
+          "$ref": "#/$defs/eventId"
+        },
+        "sessionId": {
+          "$ref": "#/$defs/sessionId"
+        },
+        "turnId": {
+          "$ref": "#/$defs/turnId"
+        },
+        "seq": {
+          "$ref": "#/$defs/seq"
+        },
+        "epoch": {
+          "$ref": "#/$defs/epoch"
+        },
+        "ts": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "backend": {
+          "$ref": "#/$defs/backendRef"
+        }
+      }
+    },
+    "onSessionCreated": {
+      "properties": {
+        "type": {
+          "const": "session.created"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "cwd"
+          ],
+          "properties": {
+            "state": {
+              "type": "string",
+              "enum": [
+                "created",
+                "running"
+              ]
+            },
+            "cwd": {
+              "type": "string"
+            },
+            "label": {
+              "type": "string",
+              "maxLength": 200
+            }
+          }
+        }
+      },
+      "required": [
+        "payload"
+      ]
+    },
+    "onSessionStateChanged": {
+      "properties": {
+        "type": {
+          "const": "session.state-changed"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "previousState",
+            "state",
+            "reason"
+          ],
+          "properties": {
+            "previousState": {
+              "type": "string",
+              "enum": [
+                "created",
+                "running",
+                "awaiting-input",
+                "blocked",
+                "completed",
+                "aborted",
+                "lost",
+                "recovering",
+                "archived"
+              ]
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "created",
+                "running",
+                "awaiting-input",
+                "blocked",
+                "completed",
+                "aborted",
+                "lost",
+                "recovering",
+                "archived"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "maxLength": 160
+            },
+            "activation": {
+              "type": "string",
+              "enum": [
+                "inactive",
+                "queued",
+                "active",
+                "draining"
+              ]
+            }
+          }
+        }
+      },
+      "required": [
+        "payload"
+      ]
+    },
+    "onSessionRecovered": {
+      "properties": {
+        "type": {
+          "const": "session.recovered"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "strategy",
+            "attempt",
+            "replayedEvents"
+          ],
+          "properties": {
+            "strategy": {
+              "type": "string",
+              "enum": [
+                "resume",
+                "fork",
+                "reseed"
+              ]
+            },
+            "attempt": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "replayedEvents": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "resumedFromSeq": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      },
+      "required": [
+        "payload"
+      ]
+    },
+    "onSessionLost": {
+      "properties": {
+        "type": {
+          "const": "session.lost"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "reason",
+            "lastKnownSeq"
+          ],
+          "properties": {
+            "reason": {
+              "type": "string",
+              "maxLength": 160
+            },
+            "lastKnownSeq": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      },
+      "required": [
+        "payload"
+      ]
+    },
+    "onTurnStarted": {
+      "properties": {
+        "type": {
+          "const": "turn.started"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "model",
+            "delivery"
+          ],
+          "properties": {
+            "model": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "reasoningEffort": {
+              "type": "string",
+              "maxLength": 32
+            },
+            "delivery": {
+              "type": "string",
+              "enum": [
+                "caller",
+                "parent"
+              ]
+            },
+            "inputDigest": {
+              "type": "string",
+              "maxLength": 64
+            }
+          }
+        }
+      },
+      "required": [
+        "payload"
+      ]
+    },
+    "onTurnCompleted": {
+      "properties": {
+        "type": {
+          "const": "turn.completed"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "stopReason",
+            "usage"
+          ],
+          "properties": {
+            "stopReason": {
+              "type": "string",
+              "enum": [
+                "end-turn",
+                "max-turns",
+                "stop-sequence",
+                "context-limit",
+                "other"
+              ]
+            },
+            "usage": {
+              "$ref": "#/$defs/usageRef"
+            },
+            "summary": {
+              "type": "string",
+              "maxLength": 4000
+            }
+          }
+        }
+      },
+      "required": [
+        "payload"
+      ]
+    },
+    "onTurnFailed": {
+      "properties": {
+        "type": {
+          "const": "turn.failed"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "error",
+            "partial"
+          ],
+          "properties": {
+            "error": {
+              "$ref": "#/$defs/errorRef"
+            },
+            "partial": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
+      "required": [
+        "payload"
+      ]
+    },
+    "onTurnAborted": {
+      "properties": {
+        "type": {
+          "const": "turn.aborted"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "interruptMethod",
+            "partial"
+          ],
+          "properties": {
+            "interruptMethod": {
+              "type": "string",
+              "enum": [
+                "native",
+                "process-kill",
+                "timeout",
+                "budget"
+              ]
+            },
+            "partial": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
+      "required": [
+        "payload"
+      ]
+    },
+    "onMessageDelta": {
+      "properties": {
+        "type": {
+          "const": "message.delta"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "channel",
+            "text",
+            "granularity",
+            "messageId"
+          ],
+          "properties": {
+            "channel": {
+              "type": "string",
+              "enum": [
+                "assistant",
+                "system",
+                "tool"
+              ]
+            },
+            "text": {
+              "type": "string"
+            },
+            "granularity": {
+              "type": "string",
+              "enum": [
+                "token",
+                "message"
+              ]
+            },
+            "messageId": {
+              "type": "string",
+              "maxLength": 128
+            }
+          }
+        }
+      },
+      "required": [
+        "payload"
+      ]
+    },
+    "onMessageCompleted": {
+      "properties": {
+        "type": {
+          "const": "message.completed"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "channel",
+            "text",
+            "messageId"
+          ],
+          "properties": {
+            "channel": {
+              "type": "string",
+              "enum": [
+                "assistant",
+                "system",
+                "tool"
+              ]
+            },
+            "text": {
+              "type": "string"
+            },
+            "messageId": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "truncated": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
+      "required": [
+        "payload"
+      ]
+    },
+    "onToolStarted": {
+      "properties": {
+        "type": {
+          "const": "tool.started"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "toolCallId",
+            "name"
+          ],
+          "properties": {
+            "toolCallId": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "name": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "kind": {
+              "type": "string",
+              "maxLength": 32
+            }
+          }
+        }
+      },
+      "required": [
+        "payload"
+      ]
+    },
+    "onToolCompleted": {
+      "properties": {
+        "type": {
+          "const": "tool.completed"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "toolCallId",
+            "status",
+            "outputDigest"
+          ],
+          "properties": {
+            "toolCallId": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "ok",
+                "error",
+                "denied"
+              ]
+            },
+            "outputDigest": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "artifact": {
+              "type": "string",
+              "maxLength": 512
+            },
+            "truncated": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
+      "required": [
+        "payload"
+      ]
+    },
+    "onPermissionRequested": {
+      "properties": {
+        "type": {
+          "const": "permission.requested"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "requestId",
+            "tool",
+            "risk",
+            "options"
+          ],
+          "properties": {
+            "requestId": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "tool": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "risk": {
+              "type": "string",
+              "enum": [
+                "read",
+                "write",
+                "execute",
+                "network",
+                "unknown"
+              ]
+            },
+            "summary": {
+              "type": "string",
+              "maxLength": 400
+            },
+            "options": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "kind"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "maxLength": 64
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "allow-once",
+                      "allow-always",
+                      "deny-once",
+                      "cancel"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "required": [
+        "payload"
+      ]
+    },
+    "onPermissionResolved": {
+      "properties": {
+        "type": {
+          "const": "permission.resolved"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "requestId",
+            "decision",
+            "by"
+          ],
+          "properties": {
+            "requestId": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "decision": {
+              "type": "string",
+              "enum": [
+                "allow-once",
+                "allow-always",
+                "deny",
+                "cancel"
+              ]
+            },
+            "by": {
+              "type": "string",
+              "enum": [
+                "policy",
+                "user"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "maxLength": 160
+            }
+          }
+        }
+      },
+      "required": [
+        "payload"
+      ]
+    },
+    "onProgressFolded": {
+      "properties": {
+        "type": {
+          "const": "progress.folded"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "window",
+            "items",
+            "dropped",
+            "chars",
+            "truncated"
+          ],
+          "properties": {
+            "window": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "startMs",
+                "endMs"
+              ],
+              "properties": {
+                "startMs": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "endMs": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind",
+                  "key",
+                  "text"
+                ],
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "state",
+                      "turn",
+                      "tool",
+                      "plan",
+                      "diff",
+                      "usage",
+                      "child",
+                      "error",
+                      "result"
+                    ]
+                  },
+                  "key": {
+                    "type": "string",
+                    "maxLength": 128
+                  },
+                  "text": {
+                    "type": "string",
+                    "maxLength": 400
+                  },
+                  "count": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            },
+            "dropped": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "count",
+                "kinds"
+              ],
+              "properties": {
+                "count": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "kinds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 32
+                  }
+                }
+              }
+            },
+            "chars": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "truncated": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
+      "required": [
+        "payload"
+      ]
+    },
+    "payload_sessionClosed": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reason"
+      ],
+      "properties": {
+        "reason": {
+          "type": "string",
+          "maxLength": 160
+        }
+      }
+    },
+    "payload_sessionArchived": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reason"
+      ],
+      "properties": {
+        "reason": {
+          "type": "string",
+          "maxLength": 160
+        }
+      }
+    },
+    "payload_sessionWarning": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "message",
+        "degrade"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 400
+        },
+        "degrade": {
+          "type": "boolean"
+        },
+        "bits": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 40
+          }
+        }
+      }
+    },
+    "payload_turnSteered": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "steerSeq"
+      ],
+      "properties": {
+        "steerSeq": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "payload_turnQueued": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "queuePosition"
+      ],
+      "properties": {
+        "queuePosition": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "payload_messageStarted": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "channel",
+        "messageId"
+      ],
+      "properties": {
+        "channel": {
+          "type": "string",
+          "enum": [
+            "assistant",
+            "system",
+            "tool"
+          ]
+        },
+        "messageId": {
+          "type": "string",
+          "maxLength": 128
+        }
+      }
+    },
+    "payload_reasoningDelta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "text",
+        "granularity"
+      ],
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "granularity": {
+          "type": "string",
+          "enum": [
+            "token",
+            "message"
+          ]
+        },
+        "messageId": {
+          "type": "string",
+          "maxLength": 128
+        }
+      }
+    },
+    "payload_reasoningSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "text"
+      ],
+      "properties": {
+        "text": {
+          "type": "string",
+          "maxLength": 4000
+        }
+      }
+    },
+    "payload_toolProgress": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "toolCallId",
+        "text"
+      ],
+      "properties": {
+        "toolCallId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "percent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    },
+    "payload_toolFailed": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "toolCallId",
+        "error",
+        "partial"
+      ],
+      "properties": {
+        "toolCallId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "error": {
+          "$ref": "#/$defs/errorRef"
+        },
+        "partial": {
+          "type": "boolean"
+        }
+      }
+    },
+    "payload_planUpdated": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "steps"
+      ],
+      "properties": {
+        "planId": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "title",
+              "status"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "title": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "in-progress",
+                  "completed",
+                  "failed",
+                  "skipped"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "payload_diffUpdated": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "files"
+      ],
+      "properties": {
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "status"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "maxLength": 512
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "added",
+                  "modified",
+                  "deleted",
+                  "renamed"
+                ]
+              },
+              "additions": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "deletions": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "patchDigest": {
+          "type": "string",
+          "maxLength": 64
+        }
+      }
+    },
+    "payload_usageUpdated": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "usage"
+      ],
+      "properties": {
+        "usage": {
+          "$ref": "#/$defs/usageRef"
+        }
+      }
+    },
+    "payload_inputRequested": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requestId",
+        "question"
+      ],
+      "properties": {
+        "requestId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "question": {
+          "type": "string",
+          "maxLength": 400
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 120
+          }
+        }
+      }
+    },
+    "payload_inputResolved": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requestId",
+        "decision"
+      ],
+      "properties": {
+        "requestId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "decision": {
+          "type": "string",
+          "enum": [
+            "answered",
+            "declined",
+            "timeout"
+          ]
+        },
+        "answerDigest": {
+          "type": "string",
+          "maxLength": 64
+        }
+      }
+    },
+    "payload_childSpawned": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "childSessionId",
+        "depth"
+      ],
+      "properties": {
+        "childSessionId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "nativeAgentId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "depth": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "payload_childStateChanged": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "childSessionId",
+        "previousState",
+        "state"
+      ],
+      "properties": {
+        "childSessionId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "previousState": {
+          "type": "string",
+          "enum": [
+            "created",
+            "running",
+            "awaiting-input",
+            "blocked",
+            "completed",
+            "aborted",
+            "lost",
+            "recovering",
+            "archived"
+          ]
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "created",
+            "running",
+            "awaiting-input",
+            "blocked",
+            "completed",
+            "aborted",
+            "lost",
+            "recovering",
+            "archived"
+          ]
+        }
+      }
+    },
+    "payload_childCompleted": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "childSessionId",
+        "status"
+      ],
+      "properties": {
+        "childSessionId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "ok",
+            "error",
+            "aborted"
+          ]
+        },
+        "summary": {
+          "type": "string",
+          "maxLength": 2000
+        }
+      }
+    },
+    "payload_transportStateChanged": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "transport",
+        "state"
+      ],
+      "properties": {
+        "transport": {
+          "type": "string",
+          "enum": [
+            "acp-stdio",
+            "app-server-jsonrpc",
+            "agent-sdk",
+            "cli-stream-json",
+            "http-api"
+          ]
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "connecting",
+            "ready",
+            "degraded",
+            "closed",
+            "failed"
+          ]
+        },
+        "detail": {
+          "type": "string",
+          "maxLength": 200
+        }
+      }
+    },
+    "payload_diagnosticLog": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "level",
+        "message",
+        "component"
+      ],
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": [
+            "debug",
+            "info",
+            "warn",
+            "error"
+          ]
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "component": {
+          "type": "string",
+          "maxLength": 64
+        }
+      }
+    }
+  }
+}

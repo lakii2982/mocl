@@ -1,0 +1,24 @@
+{
+  "abiVersion": "0.1",
+  "sessionId": "sess_01J9ZQ8K3M4N5P6Q7R8S9T0V1W",
+  "backend": { "id": "kimi", "version": "2.3.1" },
+  "state": "zombie",
+  "activation": "active",
+  "seq": 0,
+  "epoch": 0,
+  "createdAt": "2026-10-25T13:54:07.123Z",
+  "updatedAt": "2026-10-25T13:54:07.123Z",
+  "capabilities": [],
+  "limits": {
+    "maxTurnMs": 1800000,
+    "idleTimeoutMs": 180000,
+    "leaseTtlMs": 30000,
+    "heartbeatMs": 10000,
+    "maxSessionsPerBackend": 8,
+    "maxConcurrentTurns": 8,
+    "maxNestingDepth": 2,
+    "maxEventBytes": 262144,
+    "maxParentProgressItems": 8,
+    "maxParentProgressChars": 1200
+  }
+}

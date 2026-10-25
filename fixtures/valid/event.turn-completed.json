@@ -1,0 +1,22 @@
+{
+  "abiVersion": "0.1",
+  "eventId": "01J9ZR2B3C4D5E6F7G8H9J0K1M",
+  "sessionId": "sess_01J9ZQ8K3M4N5P6Q7R8S9T0V1W",
+  "turnId": "turn_01J9ZQ8K3M4N5P6Q7R8S9T0V1W",
+  "seq": 43,
+  "epoch": 1,
+  "ts": "2026-10-25T13:54:11.789Z",
+  "type": "turn.completed",
+  "backend": { "id": "codex", "version": "0.164.0" },
+  "payload": {
+    "stopReason": "end-turn",
+    "usage": {
+      "estimated": false,
+      "scope": "turn",
+      "inputTokens": 1200,
+      "outputTokens": 340,
+      "durationMs": 4200
+    },
+    "summary": "done"
+  }
+}

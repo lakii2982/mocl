@@ -1,0 +1,7 @@
+{
+  "code": "auth.credential-expired",
+  "category": "auth",
+  "message": "credential expired",
+  "retryable": "no",
+  "severity": "fatal"
+}

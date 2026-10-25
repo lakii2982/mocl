@@ -1,0 +1,11 @@
+{
+  "abiVersion": "0.1",
+  "requestId": "req_01J9ZR6F7G8H9J0K1M2N3P4Q5R",
+  "method": "session.send",
+  "sessionId": "sess_01J9ZQ8K3M4N5P6Q7R8S9T0V1W",
+  "params": {
+    "input": [{ "type": "text", "text": "hi" }],
+    "expect": "turn",
+    "delivery": "caller"
+  }
+}

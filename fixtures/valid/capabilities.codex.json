@@ -1,0 +1,22 @@
+{
+  "abiVersion": "0.1",
+  "backendId": "codex",
+  "backendVersion": "0.164.0",
+  "transport": "app-server-jsonrpc",
+  "nativeProtocolVersion": "0.164.0-appserver",
+  "bits": [
+    { "bit": "headless", "state": "native" },
+    { "bit": "streaming", "state": "native", "detail": "item/*Delta" },
+    { "bit": "resumeSession", "state": "native", "detail": "thread/resume" },
+    { "bit": "interruptTurn", "state": "native", "detail": "turn/interrupt" }
+  ],
+  "limits": {
+    "maxTurnMs": 1800000,
+    "idleTimeoutMs": 180000,
+    "maxSessionsPerBackend": 8,
+    "maxNestingDepth": 2,
+    "maxConcurrentTurns": 8
+  },
+  "warnings": [],
+  "observedAt": "2026-10-25T13:54:07.123Z"
+}

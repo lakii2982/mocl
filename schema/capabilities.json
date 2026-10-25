@@ -1,0 +1,171 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mocl.dev/abi/v0/capabilities.json",
+  "title": "MoclCapabilityDeclaration",
+  "description": "ABI v0 能力声明（握手期一次性生成，session.query 可回读）。34 个能力位的唯一登记表见 docs/abi/abi-v0.md §3.2；缺失位必须走 §3.5 降级表，不得运行期报错。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "abiVersion",
+    "backendId",
+    "backendVersion",
+    "transport",
+    "bits",
+    "limits",
+    "warnings",
+    "observedAt"
+  ],
+  "properties": {
+    "abiVersion": {
+      "type": "string",
+      "const": "0.1"
+    },
+    "backendId": {
+      "type": "string",
+      "enum": [
+        "codex",
+        "claude-code",
+        "kimi",
+        "opencode"
+      ]
+    },
+    "backendVersion": {
+      "type": "string",
+      "maxLength": 64
+    },
+    "transport": {
+      "type": "string",
+      "enum": [
+        "acp-stdio",
+        "app-server-jsonrpc",
+        "agent-sdk",
+        "cli-stream-json",
+        "http-api"
+      ]
+    },
+    "nativeProtocolVersion": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 64,
+      "description": "后端原生协议版本（ACP protocolVersion / app-server 版本断言 / SDK-CLI 组合版本）。"
+    },
+    "bits": {
+      "type": "array",
+      "description": "按 bit 名排序的能力状态数组；数组形态避免动态键，便于 schema 校验与 diff。",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "bit",
+          "state"
+        ],
+        "properties": {
+          "bit": {
+            "type": "string",
+            "enum": [
+              "headless",
+              "streaming",
+              "resumeSession",
+              "forkSession",
+              "listSessions",
+              "interruptTurn",
+              "nativeSubagents",
+              "toolExtension",
+              "permissionModes",
+              "sandboxModes",
+              "modelRouting",
+              "concurrencyControl",
+              "usageReporting",
+              "structuredProtocol",
+              "versionPinning",
+              "multiTurn",
+              "steerTurn",
+              "inputInbox",
+              "tokenLevelStream",
+              "planUpdates",
+              "diffUpdates",
+              "tokenUsage",
+              "permissionAutoReply",
+              "permissionRequestBridge",
+              "childSessionUpdates",
+              "sessionArchive",
+              "sessionUnarchive",
+              "sessionDelete",
+              "sessionExport",
+              "sessionReseed",
+              "worktreeIsolation",
+              "backgroundRuns",
+              "processKillInterrupt",
+              "handshakeVersion"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "native",
+              "emulated",
+              "unavailable"
+            ]
+          },
+          "detail": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "证据/替代路径说明；state=emulated 时必填（由 ABI 语义层校验）。"
+          },
+          "constraint": {
+            "type": "string",
+            "maxLength": 200
+          }
+        }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maxTurnMs",
+        "idleTimeoutMs",
+        "maxSessionsPerBackend",
+        "maxNestingDepth",
+        "maxConcurrentTurns"
+      ],
+      "properties": {
+        "maxTurnMs": {
+          "type": "integer",
+          "minimum": 1000
+        },
+        "idleTimeoutMs": {
+          "type": "integer",
+          "minimum": 1000
+        },
+        "maxSessionsPerBackend": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maxNestingDepth": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxConcurrentTurns": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 200
+      },
+      "description": "降级/风险公告（例如 versionPinning=unavailable 必须在此留痕）。"
+    },
+    "observedAt": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$"
+    }
+  }
+}

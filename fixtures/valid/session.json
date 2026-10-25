@@ -1,0 +1,34 @@
+{
+  "abiVersion": "0.1",
+  "sessionId": "sess_01J9ZQ8K3M4N5P6Q7R8S9T0V1W",
+  "backend": {
+    "id": "codex",
+    "version": "0.164.0",
+    "transport": "app-server-jsonrpc"
+  },
+  "backendSessionId": "0199c0de-0000-7000-8000-000000000001",
+  "state": "running",
+  "activation": "active",
+  "seq": 42,
+  "epoch": 1,
+  "createdAt": "2026-10-25T13:54:07.123Z",
+  "updatedAt": "2026-10-25T13:54:09.456Z",
+  "capabilities": [
+    { "bit": "headless", "state": "native" },
+    { "bit": "resumeSession", "state": "native" },
+    { "bit": "streaming", "state": "native" }
+  ],
+  "limits": {
+    "maxTurnMs": 1800000,
+    "idleTimeoutMs": 180000,
+    "leaseTtlMs": 30000,
+    "heartbeatMs": 10000,
+    "maxSessionsPerBackend": 8,
+    "maxConcurrentTurns": 8,
+    "maxNestingDepth": 2,
+    "maxEventBytes": 262144,
+    "maxParentProgressItems": 8,
+    "maxParentProgressChars": 1200
+  },
+  "progress": { "mode": "summary", "emittedItems": 2, "droppedEvents": 37 }
+}

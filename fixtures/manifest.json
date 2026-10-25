@@ -1,0 +1,11 @@
+[
+  { "file": "valid/session.json", "schema": "session", "expect": "valid" },
+  { "file": "valid/event.turn-completed.json", "schema": "event", "expect": "valid" },
+  { "file": "valid/error.rate-limited.json", "schema": "error", "expect": "valid" },
+  { "file": "valid/capabilities.codex.json", "schema": "capabilities", "expect": "valid" },
+  { "file": "valid/request.session-send.json", "schema": "request", "expect": "valid" },
+  { "file": "invalid/event.unknown-type.json", "schema": "event", "expect": "invalid" },
+  { "file": "invalid/session.bad-state.json", "schema": "session", "expect": "invalid" },
+  { "file": "invalid/error.missing-user-message.json", "schema": "error", "expect": "invalid" },
+  { "file": "invalid/request.send-missing-idempotency.json", "schema": "request", "expect": "invalid" }
+]

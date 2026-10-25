@@ -1,0 +1,23 @@
+{
+  "name": "mocl",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "MOCL — DSH 多智能体编排兼容层（施工仓；ABI 真源见 ../docs/abi/abi-v0.md）",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "sync:schema": "node tools/sync-schema.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "validate": "node tools/validate-abi.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7"
+  }
+}
