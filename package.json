@@ -11,7 +11,8 @@
     "sync:schema": "node tools/sync-schema.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "validate": "node tools/validate-abi.mjs"
+    "validate": "node tools/validate-abi.mjs",
+    "baseline:codex": "node scripts/assert-codex-baseline.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",
