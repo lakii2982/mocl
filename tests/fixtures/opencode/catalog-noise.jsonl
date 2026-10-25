@@ -1,0 +1,5 @@
+{"id":"evt_173d9b186001Fu6dKR9vIh0D1p","created":1792945009030,"type":"integration.updated","location":{"directory":"/tmp"},"data":{}}
+{"id":"evt_173d9b1880010z86jBbTMgRTUC","created":1792945009032,"type":"provider.updated","location":{"directory":"/tmp"},"data":{}}
+{"id":"evt_173d9b18c001Mi3r6Z6uqhpP25","created":1792945009036,"type":"model.updated","location":{"directory":"/tmp"},"data":{}}
+{"id":"evt_173d9b18d001SMqfUmlB1RPLMp","created":1792945009037,"type":"agent.updated","location":{"directory":"/tmp"},"data":{}}
+{"id":"evt_173d9b18f0017JcKcZYsen2NBA","created":1792945009039,"type":"websearch.updated","location":{"directory":"/tmp"},"data":{}}
