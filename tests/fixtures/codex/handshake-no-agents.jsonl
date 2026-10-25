@@ -1,0 +1,2 @@
+{"on": "request", "method": "initialize", "reply": {"userAgent": "mocl-codex/0.164.0 (Mac OS 27.0.1; arm64) dumb (mocl-codex; 0.1)", "codexHome": "/tmp/codex-home", "platformFamily": "unix", "platformOs": "macos"}}
+{"on": "request", "method": "config/read", "reply": {"config": {"agents": null}}}
