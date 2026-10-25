@@ -80,3 +80,34 @@ impl/
 - 发现「设计包与 schema/实现」冲突时：**停下并回报 Lead**，不自行改设计包。
 - 后续切片（C2+）的写域见 `../.astra/PLAN.md` Part B：C2 `src/broker/`、C3 `src/bus/`、
   C4–C7 `src/adapters/`；本仓 ABI 层（`src/abi/`）对它们只读依赖。
+
+## C8：门面 + DSH 插件（`subagent_agent` / `mocl_status`）
+
+> **宿主 API 基线：DSH `0.2.1-rc.3`**（实测自 `@deepseek-ai/dsh-tools` 的
+> `ctx.tools.register(definition)` 与 `@deepseek-ai/dsh-tool-subagent` 的
+> `export { name, inject, apply }` 插件形状）。最小声明见
+> [`src/plugin/dsh-types.d.ts`](src/plugin/dsh-types.d.ts)；
+> **升级 DSH 时需复核该文件与 `ctx.tools` 注册签名、工具 JSON Schema 子集。**
+
+- 门面：`src/facade/`（`MoclFacade.create/open/send/status/list/resume/interrupt/close`；
+  统一 `MoclError → ABI ErrorRef`；配置默认最小权限，见 `config.default.json`）。
+- 插件：`src/plugin/index.ts`（薄壳；`subagent_agent(backend=codex|claude-code|kimi|opencode)`
+  + `mocl_status(childId?, cursor?)`；`maxDepth` 默认 `provider-managed`）。
+- patch 覆盖：`patch/cordis.patch.yml`（新增插件行）、`patch/disable-legacy.yml`
+  （停用旧 `subagent-codex|claude-code` 与 `tool-subagent-*`，R25）。
+- 验证：
+
+```bash
+pnpm -s typecheck
+pnpm -s test -- --run
+pnpm -s assert:dsh-tool     # 静态 PASS；宿主不可用则打印 SKIP:host-unavailable 且 exit 0
+```
+
+- 安全默认（fail-closed）：`global.enabled=false`、四后端 `enabled=false`、
+  `permissionMode=read-only`、`allowDangerousModes=false`、
+  `worktreeIsolation=required-for-write`、`maxConcurrent="runtime"`（D-016，禁止硬编码并发）。
+- D-020：kimi CLI 首轮前 `remoteSessionId` 为空 → 门面容忍并暴露
+  `remoteIdState: pending|bound`；D-021：kimi CLI 档位不支持按调用切换 →
+  `policy.escalation-required`（不偷偷降档）。
+- 本仓**不安装** `@mocl/dsh-plugin` 包、也**不写用户 DSH profile**；patch 仅作覆盖文件，
+  启用步骤见 `../HANDOFF.md`（用户确认后执行）。

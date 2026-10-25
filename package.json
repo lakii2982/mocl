@@ -13,7 +13,8 @@
     "test": "vitest run",
     "validate": "node tools/validate-abi.mjs",
     "baseline:codex": "node scripts/assert-codex-baseline.mjs",
-    "upgrade:codex": "node scripts/upgrade-dsh-codex-payload.mjs"
+    "upgrade:codex": "node scripts/upgrade-dsh-codex-payload.mjs",
+    "assert:dsh-tool": "node scripts/assert-dsh-tool.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",
@@ -24,5 +25,8 @@
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "0.3.263"
+  },
+  "bin": {
+    "mocl-assert-dsh-tool": "scripts/assert-dsh-tool.mjs"
   }
 }

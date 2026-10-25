@@ -1,0 +1,10 @@
+# R25：停用旧的一次性外部子代理 provider/工具，避免与 `subagent_agent` 重复/冲突。
+# 回滚：删除本文件对应的 patch 行（或显式恢复 enabled）即可，无需改 MOCL 配置。
+- id: subagent-codex
+  disabled: true
+- id: subagent-claude-code
+  disabled: true
+- id: tool-subagent-codex
+  disabled: true
+- id: tool-subagent-claude-code
+  disabled: true
