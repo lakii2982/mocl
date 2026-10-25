@@ -12,7 +12,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "validate": "node tools/validate-abi.mjs",
-    "baseline:codex": "node scripts/assert-codex-baseline.mjs"
+    "baseline:codex": "node scripts/assert-codex-baseline.mjs",
+    "upgrade:codex": "node scripts/upgrade-dsh-codex-payload.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",

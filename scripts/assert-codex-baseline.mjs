@@ -49,7 +49,7 @@ const DEFAULTS = {
 const REQUIRED_CLIENT_METHODS = ["thread/resume", "turn/steer", "thread/loaded/list"];
 const REQUIRED_ITEM_VARIANTS = ["collabAgentToolCall"];
 const SCHEMA_FILES_HINT = 39; // 37 个顶层 JSON + v1/ + v2/ 两个子目录；仅提示，不参与判定
-const PROFILE_ROOT = join(homedir(), ".dsh", "profiles");
+const DEFAULT_PROFILE_ROOT = join(homedir(), ".dsh", "profiles");
 const BUNDLE_PKG = "@openai/codex-darwin-arm64";
 const GENERATE_TIMEOUT_MS = 120_000;
 const VERSION_TIMEOUT_MS = 30_000;
@@ -101,6 +101,7 @@ function usage(stream = process.stdout) {
       `  --expect-client-request <n>    期望 ClientRequest 数（默认 ${DEFAULTS.clientRequest}）`,
       `  --expect-server-notification <n>  期望 ServerNotification 数（默认 ${DEFAULTS.serverNotification}）`,
       `  --expect-server-request <n>    期望 ServerRequest 数（默认 ${DEFAULTS.serverRequest}）`,
+      "  --profile-root <dir>           profile 根目录（默认 ~/.dsh/profiles；测试/CI 用）",
       "  --strict-bundle                profile 内旧载荷 DIFF 也算失败（升级完成后应开启）",
       "  --json                         输出机器可读 JSON（不打印人读日志）",
       "  --keep                         保留导出的 schema 目录（便于排查）",
@@ -128,6 +129,7 @@ function parseCli(rawArgv) {
         "expect-client-request": { type: "string" },
         "expect-server-notification": { type: "string" },
         "expect-server-request": { type: "string" },
+        "profile-root": { type: "string" },
         "strict-bundle": { type: "boolean", default: false },
         json: { type: "boolean", default: false },
         keep: { type: "boolean", default: false },
@@ -163,6 +165,7 @@ function parseCli(rawArgv) {
       serverNotification: toPositiveInt(values["expect-server-notification"], "--expect-server-notification") ?? DEFAULTS.serverNotification,
       serverRequest: toPositiveInt(values["expect-server-request"], "--expect-server-request") ?? DEFAULTS.serverRequest,
     },
+    profileRoot: values["profile-root"] === undefined ? DEFAULT_PROFILE_ROOT : resolve(values["profile-root"]),
     strictBundle: Boolean(values["strict-bundle"]),
     json: Boolean(values.json),
     keep: Boolean(values.keep),
@@ -266,11 +269,11 @@ function countMethods(filePath) {
 }
 
 /** 扫描 DSH profile 里的 codex bundle 载荷。 */
-function detectProfileBundles() {
-  if (!existsSync(PROFILE_ROOT)) return [];
+function detectProfileBundles(profileRoot) {
+  if (!existsSync(profileRoot)) return [];
   const found = [];
-  for (const profile of safeReaddir(PROFILE_ROOT)) {
-    const pkgRoot = join(PROFILE_ROOT, profile, "node_modules", BUNDLE_PKG);
+  for (const profile of safeReaddir(profileRoot)) {
+    const pkgRoot = join(profileRoot, profile, "node_modules", BUNDLE_PKG);
     const vendorRoot = join(pkgRoot, "vendor");
     if (!existsSync(vendorRoot)) continue;
     let pkgVersion;
@@ -467,12 +470,12 @@ function main() {
     section("4", "DSH profile 旧载荷一致性");
     let bundles = [];
     try {
-      bundles = detectProfileBundles();
+      bundles = detectProfileBundles(cli.profileRoot);
     } catch (error) {
       info("bundle", `扫描失败（忽略）: ${/** @type {Error} */ (error).message.split("\n")[0]}`);
     }
     if (bundles.length === 0) {
-      skip("bundle", `未发现 profile bundle 载荷（${join(PROFILE_ROOT, "*", "node_modules", BUNDLE_PKG)}）`);
+      skip("bundle", `未发现 profile bundle 载荷（${join(cli.profileRoot, "*", "node_modules", BUNDLE_PKG)}）`);
     } else {
       const diffs = [];
       for (const bundle of bundles) {
@@ -496,9 +499,9 @@ function main() {
         emit("");
         emit("  → 升级指引（DSH profile 内的 @openai/codex 是插件精确依赖，插件无配置项可绕开）：");
         emit("    A) 升级 profile 依赖（推荐，改 DSH profile 而非 asar）：");
-        emit(`       pnpm --dir ${join(PROFILE_ROOT, profile)} update @openai/codex @openai/codex-darwin-arm64`);
-        emit(`       或在 ${join(PROFILE_ROOT, profile, "package.json")} 加 pnpm.overrides 后：`);
-        emit(`       pnpm -C ${join(PROFILE_ROOT, profile)} install && 重启 DSH`);
+        emit(`       pnpm --dir ${join(cli.profileRoot, profile)} update @openai/codex @openai/codex-darwin-arm64`);
+        emit(`       或在 ${join(cli.profileRoot, profile, "package.json")} 加 pnpm.overrides 后：`);
+        emit(`       pnpm -C ${join(cli.profileRoot, profile)} install && 重启 DSH`);
         emit("    B) 不动 DSH：把兼容层/适配器的 codexBinaryPath 指向基线绝对路径：");
         emit(`       ${resolved.ok ? resolved.display : "<codex 绝对路径>"}`);
         emit("    升级后复跑：pnpm -s baseline:codex -- --strict-bundle");
@@ -543,6 +546,7 @@ function main() {
           expect: { versionPrefix: cli.expectVersionPrefix, ...cli.expect },
           checks,
           bundleWarnings: diffsOf(checks),
+          profileRoot: cli.profileRoot,
           strictBundle: cli.strictBundle,
         },
         null,

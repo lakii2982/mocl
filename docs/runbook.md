@@ -1,6 +1,6 @@
 # Runbook — MOCL 施工仓运维手册
 
-> 本文件由多个切片共同维护：**§1「codex 基线升级/回滚」属 C11（D-015）**；
+> 本文件由多个切片共同维护：**§1「codex 基线门禁」属 C11、§2「DSH profile codex 载荷升级」属 C11b（D-015）**；
 > C9 会在本文件追加「端到端 PR 演练」等章节。追加内容请勿覆盖他人章节。
 
 ## 1. codex 基线升级 / 回滚（C11 · D-015）
@@ -37,118 +37,177 @@ codex 的协议面随版本漂移，且**本机曾同时存在两份载荷**：
 `applyPatchApproval`、`execCommandApproval` 等无斜杠方法，得到 104 / 80 / 8 之类的错数。
 （该口径与 `../repro/probe-codex.sh` §4、`../docs/adapters/codex.md` §12.4 A0 一致。）
 
-### 1.2 五步升级流程
+### 1.2 升级动作
 
-> 全过程不碰 DSH 的 asar；只改 profile 的依赖树。**每一步都有可复跑的判定命令**。
-
-#### 步骤 1 — 备份 + 记录现状
-
-```bash
-cd /Users/lakii2982/项目/多智能体编排/impl
-
-# 记录两处版本（原始输出留档，别只看结论）
-codex --version
-for b in ~/.dsh/profiles/*/node_modules/@openai/codex-darwin-arm64/vendor/*/bin/codex; do
-  [ -x "$b" ] && printf '%s -> %s\n' "$b" "$("$b" --version 2>&1 | head -1)"
-done | tee /tmp/mocl-codex-baseline-before.txt
-
-# 备份 profile 清单（回滚要用）
-cp ~/.dsh/profiles/desktop/package.json /tmp/mocl-profile-package.json.bak
-cp ~/.dsh/profiles/desktop/pnpm-lock.yaml /tmp/mocl-profile-pnpm-lock.yaml.bak 2>/dev/null || true
-
-# 现状门禁（此刻应 PASS，且 bundle 行是 DIFF）
-pnpm -s baseline:codex
-```
-
-判定：`RESULT: PASS`；日志里出现 `bundle:<profile>/<target>: 0.153.4 … → DIFF`。
-
-#### 步骤 2 — 升级 profile 的 codex 载荷（不动 asar）
-
-插件对 `@openai/codex` 是**精确依赖**，且用 `require.resolve("@openai/codex/package.json")`
-定位二进制（无配置项可绕开），因此只能在 profile 侧覆盖：
-
-```bash
-# 方式 A（推荐）：直接 update 两个包
-pnpm --dir ~/.dsh/profiles/desktop update @openai/codex @openai/codex-darwin-arm64
-
-# 方式 B：先写 pnpm.overrides 再 install（升级被其它依赖锁住时用）
-#   ~/.dsh/profiles/desktop/package.json 增加：
-#     "pnpm": { "overrides": {
-#       "@openai/codex": "0.164.0",
-#       "@openai/codex-darwin-arm64": "0.164.0" } }
-pnpm -C ~/.dsh/profiles/desktop install
-
-# 升级后必须重启 DSH（profile 依赖在进程启动时解析）
-```
-
-判定：`pnpm -C ~/.dsh/profiles/desktop list @openai/codex @openai/codex-darwin-arm64` 显示 `0.164.0`。
-
-#### 步骤 3 — 跑基线门禁（严格模式）
-
-```bash
-cd /Users/lakii2982/项目/多智能体编排/impl
-pnpm -s baseline:codex -- --strict-bundle
-```
-
-判定（必须全绿）：
-
-```text
-[1] 版本           PASS version: 0.164.0
-[2] 协议计数       PASS count:ClientRequest: 106 / count:ServerNotification: 85 / count:ServerRequest: 10
-[3] 关键方法       PASS client-methods / PASS thread-item:collabAgentToolCall
-[4] 旧载荷一致性   PASS bundle:<profile>/<target>: 0.164.0 … → SAME
-RESULT: PASS  (… 0 fail …)
-```
-
-退出码必须为 `0`。任何 FAIL → 不要继续 C4，按 `DIAG 复现命令` 定位。
-
-#### 步骤 4 — 跑 1 轮 smoke（**唯一消耗额度的一步**）
-
-```bash
-# 单 turn 冒烟：断言 thread:<id> 与 turn:<id>->completed
-# 注意：`pnpm smoke` 是 C4 的交付物；若尚未落地，用 C4 的等价验收命令代替，
-#       不要用「人眼看输出」冒充通过。
-pnpm -s smoke -- --backend=codex --turn=1 --assert=exit0
-```
-
-判定：退出码 0，输出含 `thread:<id>` 与 `turn:<id>->completed`。
-若模型侧不可用（额度/401/429），按 `U1` 记录**失败终态**，不要伪造通过。
-
-#### 步骤 5 — 回滚（升级出问题时）
-
-```bash
-# 5.1 还原 profile 依赖清单
-cp /tmp/mocl-profile-package.json.bak ~/.dsh/profiles/desktop/package.json
-[ -f /tmp/mocl-profile-pnpm-lock.yaml.bak ] && \
-  cp /tmp/mocl-profile-pnpm-lock.yaml.bak ~/.dsh/profiles/desktop/pnpm-lock.yaml
-pnpm -C ~/.dsh/profiles/desktop install --frozen-lockfile
-# 5.2 重启 DSH，然后复核两处版本回到升级前
-codex --version
-~/.dsh/profiles/desktop/node_modules/@openai/codex-darwin-arm64/vendor/*/bin/codex --version
-# 5.3 门禁会重新变成「bundle DIFF 警告」（预期行为，不是回归）
-pnpm -s baseline:codex
-
-# 5.4 兜底（不降级 profile）：让兼容层走基线，DSH 插件继续用它自己的旧载荷
-#     配置 codexBinaryPath = "$(command -v codex)"，这样两条路径并存但显式声明
-```
-
-判定：回滚后门禁 `RESULT: PASS`（`bundle` 行为 DIFF 警告），C4 仍可继续用 `binaryPath`
-指向基线的 0.164.0 完成开发。
+**不要手工散改 profile。** 升级动作已脚本化为 `scripts/upgrade-dsh-codex-payload.mjs`
+（`pnpm -s upgrade:codex`），带 dry-run / 备份 / 自动回滚 / 严格门禁复验。完整五步见 **§2**。
 
 ### 1.3 升级完成后要同步的地方
 
 1. `scripts/assert-codex-baseline.mjs` 的 `DEFAULTS`（版本前缀 + 三个计数）；
-2. `../repro/probe-codex.sh` 的 `EXPECT_VER / EXPECT_CLIENT / EXPECT_NOTIF / EXPECT_REQUEST`；
-3. `../docs/adapters/codex.md` §1.2 协议差异表与 §12.4 A0 的期望值；
-4. CI：把 `pnpm -s baseline:codex -- --strict-bundle` 设为必过项（升级完成后才可开严格模式）。
+2. `scripts/upgrade-dsh-codex-payload.mjs` 的 `TARGET` 默认值来自 PATH 上的 `codex`，无需手改，但需确认 PATH 已指向新基线；
+3. `../repro/probe-codex.sh` 的 `EXPECT_VER / EXPECT_CLIENT / EXPECT_NOTIF / EXPECT_REQUEST`；
+4. `../docs/adapters/codex.md` §1.2 协议差异表与 §12.4 A0 的期望值；
+5. CI：把 `pnpm -s baseline:codex -- --strict-bundle` 设为必过项（升级完成后才可开严格模式）。
 
-### 1.4 常见故障对照
+### 1.4 常见故障对照（门禁侧）
 
 | 现象 | 原因 | 处置 |
 |---|---|---|
 | `FAIL version: … 不匹配期望前缀` | PATH 上的 codex 不是 0.164.0 | `--binary` 指向基线绝对路径；或升级 nvm 全局包 |
 | `FAIL count:ClientRequest: 106 != 期望 …` | 二进制换了版本 / 期望值未同步 | 先确认 `--version`，再按 §1.3 同步期望值 |
 | `SKIP protocol-counts` | 二进制不可执行 | 检查 `--binary` 路径与执行权限 |
-| `bundle: … → DIFF` | profile 还是旧载荷 | 默认是警告；按 §1.2 步骤 2 升级，或加 `--strict-bundle` 让它变红 |
+| `bundle: … → DIFF` | profile 还是旧载荷 | 默认是警告；按 **§2** 用脚本升级，或加 `--strict-bundle` 让它变红 |
 | `生成 schema 失败` | 二进制损坏 / 磁盘满 / 参数不支持 | 手工复跑 `codex app-server generate-json-schema --out /tmp/cx` 看原始报错 |
 | 门禁很慢（>10s） | 正常的 `generate-json-schema` 约 1–3s；异常慢多为磁盘或杀毒扫描 | 用 `--keep` 保留 schema 目录排查 |
+
+## 2. DSH profile codex 载荷升级（C11b · D-015 落地动作）
+
+### 2.0 为什么必须脚本化，以及本机可升级性判断
+
+`@deepseek-ai/dsh-subagent-codex` 对 `@openai/codex` 是**精确依赖**，插件用
+`require.resolve("@openai/codex/package.json")` 定位二进制（**没有配置项可绕开**），
+而 desktop profile 由 Electron 进程管理。手工改 `node_modules` 或手工 pnpm 都属"散改"，
+失败后说不清改了什么、也无法一键还原 —— 所以统一走脚本。
+
+本机实测（2026-10-26，只读判断）：
+
+| 事实 | 值 | 对升级的影响 |
+|---|---|---|
+| PATH 上 `codex` | **0.164.0**（基线） | 目标版本可直接从它推导 |
+| profile 内 `@openai/codex` | 0.153.4 | 待升级 |
+| profile 内平台载荷 `@openai/codex-darwin-arm64` | `0.153.4-darwin-arm64`，其 `package.json` 的 `name` 却是 `@openai/codex` | 它是 **npm 别名**（lockfile 写作 `npm:@openai/codex@0.153.4-darwin-arm64`） |
+| profile `package.json` 是否直接声明 `@openai/codex` | **否**（经插件传递引入） | `pnpm update @openai/codex@0.164.0` 不可靠 |
+| `@openai/codex-darwin-arm64@0.164.0` 这个 spec | **不存在**（真实发布物是 `@openai/codex@0.164.0-darwin-arm64`） | 不能按字面量 update 它 |
+| DSH（Electron）是否在跑 | 是 | pnpm 可能 `EBUSY`/`EPERM` → 脚本 exit 3 |
+
+**结论：可升级，但必须（a）先完全退出 DSH、（b）用 `pnpm.overrides` 而不是 `pnpm update`。**
+脚本的 `--strategy auto` 会自动选这个策略，并在 dry-run 里解释原因。
+
+### 2.1 五步升级流程
+
+> 前三步零额度、不改 profile；第 4 步才需要重启 DSH；任何一步失败先回滚再排查。
+
+#### 步骤 1 — dry-run 先看完整计划（必做）
+
+```bash
+cd /Users/lakii2982/项目/多智能体编排/impl
+pnpm -s upgrade:codex --dry-run
+# 机器可读：pnpm -s upgrade:codex --dry-run | tail -1   （或加 --json）
+```
+
+计划必须包含六项：**当前版本 / 目标版本 / 备份目录 / 将执行的命令 / 复验命令 / 回滚命令**。
+判定：`exit 0`，且输出含 `结论: dry-run 完成（未写盘、未调用 pnpm）`。
+此刻 `ls var/` 应为空/不存在（dry-run 不创建任何东西）。
+
+#### 步骤 2 — 完全退出 DSH（Electron 独占）
+
+```bash
+# 完全退出 DeepSeek Harness（含托盘/后台），直到下面没有输出
+pgrep -f "DeepSeek Harness"
+```
+
+判定：无输出（`pgrep` 退出码 1）。若仍有进程，`--apply` 很可能得到 exit 3（见 §2.2），
+这属于环境限制、不是脚本故障。
+
+#### 步骤 3 — apply：备份 → 升级 → 严格门禁复验
+
+```bash
+pnpm -s upgrade:codex --apply
+```
+
+脚本顺序固定：**备份**到 `<repo>/var/backup/codex-payload-<ts>/`（`package.json` +
+`pnpm-lock.yaml` + 两个 `@openai` 载荷目录 + `manifest.json` + `PLAN.txt`）→ 写 overrides
+→ `pnpm --dir <profile> install --no-frozen-lockfile` → 版本后检 → 跑
+`assert-codex-baseline.mjs --strict-bundle`。
+
+判定（三选一）：
+
+| 退出码 | 含义 | 你要做什么 |
+|---|---|---|
+| `0` | 成功，复验 `strict-bundle` 通过 | 进步骤 4 |
+| `1` | 业务失败（pnpm 报错 / 版本没到位 / 复验失败） | **已自动回滚**；看输出里的 pnpm 报错 |
+| `3` | 环境不支持（Electron 独占/不可写/缺 pnpm 或宿主 codex） | 按输出给的 A/B/C 替代路径处理 |
+
+输出末尾必须能看到回滚命令与备份路径，例如：
+
+```text
+== 升级完成 ==
+  备份保留在: /…/impl/var/backup/codex-payload-20261026-010203
+  回滚命令  : node scripts/upgrade-dsh-codex-payload.mjs --rollback /…/codex-payload-20261026-010203
+  下一步    : 重启 DSH，然后跑 `pnpm -s baseline:codex -- --strict-bundle` 与 C4 smoke。
+```
+
+#### 步骤 4 — 重启 DSH，跑严格门禁
+
+```bash
+# 重启 DeepSeek Harness 后
+pnpm -s baseline:codex -- --strict-bundle
+```
+
+判定：`exit 0`，且第 4 节出现 `bundle:<profile>/<target>: 0.164.0 … → SAME`
+（之前是 `DIFF`）。然后按 §1.3 同步期望值/CI。
+
+#### 步骤 5 — 回滚（升级出问题时；**还原备份，不删目录**）
+
+```bash
+pnpm -s upgrade:codex --rollback var/backup/codex-payload-<ts>
+```
+
+行为：按 `manifest.json` 把 `package.json` / `pnpm-lock.yaml` / 两个载荷目录**覆盖还原**，
+并逐个文件校验 sha256；**不删除任何文件**（备份里没有的多余文件只报告、不删）。
+判定：`exit 0` 且输出 `verify-restore  OK  所有文件与备份字节一致`。
+回滚后 `pnpm -s baseline:codex` 会重新显示 `bundle DIFF` 警告（**预期，不是回归**），
+此时可继续用 `codexBinaryPath` 指向基线做 C4 开发。
+
+### 2.2 退出码约定（脚本契约）
+
+| 码 | 名称 | 触发 | 是否已回滚 |
+|---|---|---|---|
+| 0 | OK | dry-run 完成 / apply 且复验通过 / rollback 完成 | — |
+| 1 | FAIL | pnpm 非零且非独占类错误、后检版本不符、`--strict-bundle` 复验失败、备份/回滚自身失败 | 是（尽力） |
+| 2 | USAGE | 参数冲突（`--dry-run`+`--apply`、`--rollback`+`--apply`）、未知参数、非法 `--strategy`/`--timeout-ms` | — |
+| 3 | ENV | Electron/DSH 独占（`EBUSY/EPERM/EACCES/ENOTEMPTY/ELOCKED`）、profile 不可写、缺 pnpm、缺宿主 codex、dry-run 有阻塞项 | 是（若已进入 apply） |
+
+`exit 3` 时脚本一定会打印替代路径，**不会静默失败**：
+
+- **A**：退出 DSH 后重跑 `--apply`（或等 DSH 发版带上基线载荷）；
+- **B**：在 DSH 插件管理页升级 `@deepseek-ai/dsh-subagent-codex` 及其 `@openai/codex` 载荷；
+- **C**：不动 DSH，把兼容层的 `codexBinaryPath` 指向宿主基线二进制（两套路径并存期必须显式声明）。
+
+### 2.3 手工兜底（仅在脚本本身不可用时）
+
+```bash
+P=~/.dsh/profiles/desktop
+# 1) 备份（不要 rm，只拷）
+mkdir -p /tmp/mocl-codex-bak && cp "$P/package.json" "$P/pnpm-lock.yaml" /tmp/mocl-codex-bak/
+# 2) 写 overrides（注意别名值必须是 npm:@openai/codex@0.164.0-darwin-arm64）
+python3 - <<'EOF'
+import json, os
+p = os.path.expanduser("~/.dsh/profiles/desktop/package.json")
+d = json.load(open(p))
+d.setdefault("pnpm", {}).setdefault("overrides", {}).update({
+    "@openai/codex": "0.164.0",
+    "@openai/codex-darwin-arm64": "npm:@openai/codex@0.164.0-darwin-arm64",
+})
+json.dump(d, open(p, "w"), indent=2, ensure_ascii=False)
+EOF
+# 3) 安装（先退出 DSH！）
+pnpm -C "$P" install --no-frozen-lockfile
+# 4) 复验
+cd /Users/lakii2982/项目/多智能体编排/impl && pnpm -s baseline:codex -- --strict-bundle
+# 5) 还原 = 把备份拷回（不要 rm -rf 目录）
+cp /tmp/mocl-codex-bak/package.json /tmp/mocl-codex-bak/pnpm-lock.yaml "$P/"
+```
+
+### 2.4 已知限制
+
+1. **备份体积**：平台载荷约 275 MB。macOS 用 clonefile（`cp -c`）秒级完成且 COW 不额外占盘；
+   非 macOS 回退整目录复制（慢一些但可用）。
+2. **脚本不自动清理历史备份**（安全契约：不删用户文件）。请人工定期清理 `var/backup/` 下旧目录。
+3. `--apply` 时 pnpm 会访问 registry（唯一联网动作）；`--dry-run` 全程不联网、不调 pnpm。
+4. 升级后**必须重启 DSH** 才生效（插件在进程启动时 `require.resolve`）。
+5. 本机当前 DSH 正在运行，因此 `--apply` 大概率以 exit 3 结束 —— 这是预期路径，
+   先按 §2.1 步骤 2 退出 DSH。**本次施工只执行 dry-run**，真升级由用户确认后执行。
+6. `--profile-root` / `--backup-root` / `--pnpm` / `--verify-script` 是测试与 CI 钩子，
+   **不要**在真环境随意指向别处（指向错 profile 会备份/还原错误目录）。
