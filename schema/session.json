@@ -60,6 +60,14 @@
       "maxLength": 256,
       "description": "后端原生会话 id；created 阶段可能为 null，running 后回填。"
     },
+    "remoteIdState": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "bound"
+      ],
+      "description": "D-020：后端会话 id 是否已回填。pending=等待首轮 backfill（例如 kimi CLI 兜底通道首轮前为空）；缺省视为 bound（兼容既有样例）。见 abi-v0.md §6.2。"
+    },
     "state": {
       "type": "string",
       "enum": [

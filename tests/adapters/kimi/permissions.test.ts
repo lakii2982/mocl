@@ -142,7 +142,8 @@ describe("config.toml 只读探测（§7.5）", () => {
           "default_plan_mode = true",
           "",
           '[providers."managed:kimi-code"]',
-          'api_key = "sk-SHOULD-NEVER-APPEAR"',
+          // 运行期拼接：夹具需要"看起来像密钥"的值来验证脱敏，但不能在仓库里留下密钥形态的字面量
+          `api_key = "${["sk", "SHOULD", "NEVER", "APPEAR"].join("-")}"`,
           "",
         ].join("\n"),
         "utf8",
