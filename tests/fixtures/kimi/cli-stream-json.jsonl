@@ -1,0 +1,5 @@
+{"role": "meta", "type": "system.version", "version": "2.3.1"}
+{"role": "assistant", "tool_calls": [{"type": "function", "id": "tool_TYBjxkSqtCaGjxQ3YAb07o5J", "function": {"name": "Read", "arguments": "{\"path\":\"a.txt\"}"}}]}
+{"role": "tool", "tool_call_id": "tool_TYBjxkSqtCaGjxQ3YAb07o5J", "content": "1\thello-marker"}
+{"role": "assistant", "content": "`a.txt` 的内容是“hello-marker”。"}
+{"role": "meta", "type": "session.resume_hint", "session_id": "session_69e190c8-24fe-4976-8ef7-d44d76afe5e4", "command": "kimi -r session_69e190c8-24fe-4976-8ef7-d44d76afe5e4", "content": "To resume this session: kimi -r session_69e190c8-24fe-4976-8ef7-d44d76afe5e4"}
