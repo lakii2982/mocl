@@ -50,6 +50,13 @@ jobs:
       - name: 安装依赖（可复现构建）
         run: pnpm install --frozen-lockfile
 
+      # 发布前场景回归：12 个人类使用场景 + 11 条仓库门禁，产出签收单
+      # scenarios/out/release-report.{json,md}。
+      # 已知缺口基线见 scenarios/known-issues.json；若本轮要求「零缺口发版」，
+      # 把下面一行改为 `node scenarios/run.mjs --strict-known`（有 blocker 时必然红灯）。
+      - name: 发布前场景回归（离线）
+        run: node scenarios/run.mjs
+
       - name: 构建可安装插件包
         run: pnpm -s build:plugin
 

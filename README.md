@@ -112,6 +112,18 @@ node e2e/pr-scenario.mjs          # expect: RESULT: PASS (offline)
 MOCL_LIVE=1 node e2e/pr-scenario.mjs  # live variant, needs a usable backend
 ```
 
+Pre-release scenario suite (offline; follows human workflows through the DSH
+tool surface and re-runs the release gates):
+
+```bash
+node scenarios/run.mjs                # 12 scenarios + 11 gates, emits a sign-off report
+node scenarios/run.mjs --strict-known # treat known gaps as failures (release sign-off)
+node scenarios/run.mjs --live         # additionally run real-backend smoke tests
+```
+
+See [`scenarios/README.md`](scenarios/README.md) for the scenario list, known-gap
+policy and report format.
+
 Delivery engine (offline, no GitHub token needed):
 
 ```bash

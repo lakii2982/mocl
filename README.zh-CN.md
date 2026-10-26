@@ -97,6 +97,16 @@ node e2e/pr-scenario.mjs          # 期望：RESULT: PASS (offline)
 MOCL_LIVE=1 node e2e/pr-scenario.mjs  # live 档，需要可用后端
 ```
 
+发布前场景回归（离线；按真人使用路径走 DSH 工具面，并重跑发布门禁）：
+
+```bash
+node scenarios/run.mjs                # 12 个场景 + 11 条门禁，产出签收单
+node scenarios/run.mjs --strict-known # 已知缺口也阻塞（发布签收推荐）
+node scenarios/run.mjs --live         # 额外跑真实后端 smoke
+```
+
+场景清单、已知缺口政策与报告格式见 [`scenarios/README.md`](scenarios/README.md)。
+
 ## 5. 在 DSH 中使用
 
 MOCL 以 DSH 插件形式交付，注册两个工具：

@@ -313,3 +313,39 @@ MOCL_LIVE=1 node e2e/pr-scenario.mjs
 - `skipped:host-unavailable`：先手工 `codex exec --sandbox read-only --skip-git-repo-check "只回答 OK"`
   自检；仍挂起则为宿主网络/配额问题；
 - 残留：`rm -rf e2e/tmp/*`；报告在 `e2e/out/report.json`（可保留作证据，不入库）。
+
+## 5. 发布前场景回归（release gate）
+
+> 目标：用「真人使用路径」替代逐条人工点界面。默认离线、零额度，约 15 秒。
+> 完整说明、场景清单与已知缺口政策见 [`scenarios/README.md`](../scenarios/README.md)。
+
+```bash
+node scenarios/run.mjs                  # 12 场景 + 11 门禁（离线）
+node scenarios/run.mjs --strict-known   # 发布签收：已知缺口也阻塞
+node scenarios/run.mjs --scope=usage    # 只跑人类路径
+node scenarios/run.mjs --live           # 额外跑真实后端 smoke（耗额度）
+```
+
+产出：
+
+- `scenarios/out/release-report.json` / `.md` —— 机器报告 + 签收单；
+- `scenarios/out/logs/` —— 每条命令的完整原始输出；
+- `scenarios/out/artifacts/` —— 场景现场（status/cursor/注册表等，密钥已脱敏）。
+
+判定规则：
+
+| 状态 | 含义 | 发布影响 |
+|---|---|---|
+| `PASS` | 场景/门禁全部断言通过 | 可签收 |
+| `KNOWN` | 只有已登记缺口（`scenarios/known-issues.json`） | 默认不阻塞；`--strict-known` 下阻塞 |
+| `FAIL` | 任一断言失败，或基线条目已修复却未删除 | 必须处理后才可发版 |
+| `SKIP` | 仅 live 档：本机缺 CLI/凭据/服务 | 不算 PASS；需人工确认覆盖范围 |
+
+`release.yml` 已在构建插件前执行 `node scenarios/run.mjs`；签收前请核对报告里的
+「已知缺口」表，尤其 `blocker`。
+
+排障：
+
+- 场景超时/失败：先看 `scenarios/out/logs/<ID>.log`；
+- `known-issue:KI-xx:fixed`：缺口已修复，删除 `known-issues.json` 条目并把场景断言改成硬检查；
+- 「工作树不干净」提示：正式发布必须从 tag/干净工作树运行。

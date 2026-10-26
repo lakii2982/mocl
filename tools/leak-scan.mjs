@@ -73,8 +73,33 @@ const ALLOWLIST = [
   },
   {
     file: "tools/leak-scan.mjs",
+    rule: "personal-path",
+    reason: "白名单理由里必须写出被放行的占位路径（/home/u），本身不是真实用户目录",
+  },
+  {
+    file: ".github/scripts/verify-github-config.mjs",
+    rule: "personal-path",
+    reason: "校验器变异样例使用 /Users/example/... 作为假路径，用来证明规则会变红",
+  },
+  {
+    file: ".github/scripts/verify-github-config.mjs",
+    rule: "internal-ref",
+    reason: "校验器自身的内部台账禁词规则必须包含被禁止的字面量",
+  },
+  {
+    file: "tools/leak-scan.mjs",
     rule: "credential",
     reason: "扫描器自身的凭据正则必须包含 token 前缀字面量",
+  },
+  {
+    file: "tools/leak-scan.mjs",
+    rule: "personal-path",
+    reason: "扫描器的个人路径规则必须包含 /Users/、/home/ 前缀字面量（规则定义，不是真实路径）",
+  },
+  {
+    file: ".github/scripts/verify-github-config.mjs",
+    rule: "internal-ref",
+    reason: "配置校验器必须列出被禁止的内部文件名清单才能检查它们（规则定义，不是台账内容）",
   },
 ];
 
