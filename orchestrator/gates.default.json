@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "note": "本地门禁。命令在 worktree/仓库根目录执行，必须已安装（禁止触发安装、禁止访问网络）。可用 --gates-file 或 MOCL_GATES_FILE 覆盖。",
+  "gates": [
+    {
+      "id": "typecheck",
+      "description": "tsc --noEmit（strict + noUncheckedIndexedAccess）",
+      "command": "node_modules/.bin/tsc",
+      "args": ["-p", "tsconfig.json", "--noEmit"],
+      "timeoutMs": 600000
+    },
+    {
+      "id": "test",
+      "description": "vitest run",
+      "command": "node_modules/.bin/vitest",
+      "args": ["run"],
+      "timeoutMs": 900000
+    },
+    {
+      "id": "validate-abi",
+      "description": "ABI 门禁：46 错误码 / 34 能力位 / 35 事件 / 18 方法",
+      "command": "node",
+      "args": ["tools/validate-abi.mjs"],
+      "timeoutMs": 300000
+    }
+  ]
+}
