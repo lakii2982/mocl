@@ -60,6 +60,15 @@ Harness (DSH), without modifying DSH itself.
   `.editorconfig`, `.nvmrc`, `config.example.json`, and a `.gitignore` that
   excludes local configuration and build output.
 
+### Fixed
+
+- **Facade: opencode assembly** (issue #8). `createBackendAdapter("opencode", ...)`
+  now injects the HTTP or ACP client instead of constructing `OpenCodeAdapter`
+  without one. Enabling opencode no longer fails facade assembly with a
+  `TypeError`; when the channel is not configured the facade fails closed with
+  the ABI error `auth.missing-credential`. The ACP client is created lazily, so
+  assembly still does not spawn a child process.
+
 ### Known limitations
 
 - `codex` live turns are environment-limited on the development machine: the

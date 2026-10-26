@@ -4,15 +4,6 @@
   "policy": "条目必须是可复现的产品缺口，且由场景显式检测：observed=true 记为已知缺口（默认不阻塞，--strict-known 阻塞）；observed=false 判场景失败，强制删除已修复的条目。禁止用它掩盖偶发失败或环境问题。",
   "issues": [
     {
-      "id": "KI-01",
-      "title": "opencode 无法走真实装配路径（门面创建即抛 TypeError）",
-      "severity": "blocker",
-      "owner": "C7 / opencode 适配器装配",
-      "evidence": "MoclFacade.create({backends:{opencode:{enabled:true}}}) → TypeError: OpenCodeAdapter(http) requires options.http（src/facade/adapters.ts 未构造 OpenCodeHttpClient / AcpClient）",
-      "recheck": "修好 src/facade/adapters.ts 的 opencode 分支后，S12 会把 KI-01 判为未复现，届时删除本条并把断言改回硬检查",
-      "since": "0.1.0"
-    },
-    {
       "id": "KI-02",
       "title": "宿主重启后 facade.resume() 不回填运行时，send 仍 session.not-found",
       "severity": "major",

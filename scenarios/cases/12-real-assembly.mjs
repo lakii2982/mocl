@@ -6,7 +6,8 @@
  * 判定：每个启用的后端都能通过 `createBackendAdapter` 装配（懒连接，不联网、不花额度）。
  *
  * 为什么重要：CI 的单元测试都注入假适配器，装配路径坏了不会被发现。
- * KI-01：opencode 真实装配当前直接抛 TypeError（OpenCodeAdapter 需要 http/acp 实例）。
+ * KI-01 已修复（issue #8）：opencode 装配改为注入 http/acp 客户端；未配置凭据时
+ * 必须 fail-closed 抛 ABI `auth.missing-credential`，而不是 TypeError。
  */
 import { join } from "node:path";
 import { MoclFacade } from "../../src/facade/index.ts";
@@ -34,12 +35,47 @@ export default {
       }
 
       if (backend === "opencode") {
-        ctx.knownIssue(
-          "KI-01",
-          error !== null,
-          error === null ? "opencode 装配已成功（请删除基线）" : `${error.name}: ${error.message}`,
+        // With credentials configured, assembly must succeed (client construction is lazy:
+        // no network or child process happens here).
+        delete process.env.MOCL_OPENCODE_URL;
+        delete process.env.MOCL_OPENCODE_PASSWORD;
+        let failClosed = null;
+        try {
+          await MoclFacade.create({
+            config: configFor({ enabled: [backend] }),
+            runtime: runtimeAt(4),
+            registryPath: join(ctx.dir, "registry-opencode-unconfigured.json"),
+          });
+        } catch (caught) {
+          failClosed = caught;
+        }
+        ctx.assert(
+          "assembly:opencode:fail-closed",
+          failClosed !== null &&
+            failClosed.name === "MoclError" &&
+            failClosed.code === "auth.missing-credential",
+          failClosed === null ? "expected an auth.missing-credential error" : `${failClosed.name}: ${String(failClosed.code ?? failClosed.message)}`,
         );
-        if (error === null) ctx.assert("assembly:opencode", enabled === "opencode", String(enabled));
+
+        process.env.MOCL_OPENCODE_URL = "http://127.0.0.1:1";
+        process.env.MOCL_OPENCODE_PASSWORD = "scenario-password";
+        try {
+          const facade = await MoclFacade.create({
+            config: configFor({ enabled: [backend] }),
+            runtime: runtimeAt(4),
+            registryPath: join(ctx.dir, "registry-opencode-configured.json"),
+          });
+          ctx.assert(
+            "assembly:opencode",
+            facade.enabledBackendIds.join(",") === "opencode",
+            facade.enabledBackendIds.join(","),
+          );
+        } catch (caught) {
+          ctx.assert("assembly:opencode", false, `${caught.name}: ${caught.message}`);
+        } finally {
+          delete process.env.MOCL_OPENCODE_URL;
+          delete process.env.MOCL_OPENCODE_PASSWORD;
+        }
         continue;
       }
 
