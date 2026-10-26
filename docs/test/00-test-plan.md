@@ -108,3 +108,23 @@ pnpm -s e2e             # L4（需要真实额度，CI 里标记 nightly）
 - 禁止把真实仓库内容提交为 fixture；用合成仓库 `fixtures/repo-mini`。
 - 额度敏感用例（L4）标 `@quota`，默认跳过，显式 `--with-quota` 才跑。
 - 每个后端失败用例最多重试 1 次（防额度浪费），重试结果单独记录。
+
+## 9. 发布前场景回归（release gate）
+
+> 目的：在每次正式发布前，用**人类使用路径**做一次可签收的回归，而不是逐条人工点界面。
+> 位置：[`scenarios/`](../../scenarios/README.md)，默认离线、零额度，约 15 秒。
+
+```bash
+node scenarios/run.mjs                # 12 个场景 + 11 条门禁
+node scenarios/run.mjs --strict-known # 已知缺口也阻塞（发布签收推荐）
+node scenarios/run.mjs --live         # 额外跑真实后端 smoke（耗额度）
+```
+
+判定：
+
+- 场景覆盖 S01–S12：冷启动 fail-closed、首个只读任务、追问/游标、中断、重启续接、
+  并发、护栏、四后端巡检、密钥卫生、回滚、发布一致性、真实装配；
+- 门禁 G01–G11 复用本计划的 L0–L4 命令与仓库闸门；
+- 已存在的产品缺口登记在 `scenarios/known-issues.json`：`observed=true` 不阻塞（`--strict-known` 阻塞），
+  `observed=false` 判失败（强制删除已修复条目）；
+- 报告：`scenarios/out/release-report.{json,md}`；`release.yml` 已在构建插件前执行本套件。

@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, relative } from "node:path";
+import { delimiter, dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -229,7 +229,21 @@ function backupDirFrom(ws: Workspace, stdout: string): string {
   return join(ws.backupRoot, entries[0] as string);
 }
 
-describe("C11b DSH profile codex 载荷升级脚本", () => {
+/**
+ * CI portability: the default verification path of the upgrade flow needs a baseline
+ * `codex` binary (PATH or MOCL_CODEX_BIN). A clean CI runner has none; skip instead of fail.
+ */
+function hasCodexBinary(): boolean {
+  if (process.env.MOCL_SKIP_LOCAL_BASELINE_TESTS === "1") return false;
+  const override = process.env.MOCL_CODEX_BIN;
+  if (override !== undefined && override.trim() !== "") return true;
+  for (const dir of (process.env.PATH ?? "").split(delimiter)) {
+    if (dir !== "" && existsSync(join(dir, "codex"))) return true;
+  }
+  return false;
+}
+
+describe.skipIf(!hasCodexBinary())("C11b DSH profile codex 载荷升级脚本", () => {
   it("dry-run：打印完整计划（当前/目标/备份/命令/复验/回滚）且完全不写盘", { timeout: CASE_TIMEOUT_MS }, () => {
     const ws = makeWorkspace();
     const before = snapshot(ws.root);

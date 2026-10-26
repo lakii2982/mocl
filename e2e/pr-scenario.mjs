@@ -209,10 +209,23 @@ function baseConfig() {
   });
 }
 
+/** Offline harness runtime value: CI has no DSH host to read D-016 from. */
+const OFFLINE_RUNTIME_MAX = 4;
+
 function runtimeProvider() {
   const max = runtimeMax();
   if (max === null || !Number.isSafeInteger(max) || max <= 0) {
-    throw new Error("runtime maxActiveSubagents unavailable (D-016 fail-closed; set MOCL_MAX_ACTIVE_SUBAGENTS)");
+    // D-016 fail-closed is a product rule for real hosts. The offline e2e harness is a
+    // self-contained test double: without a DSH host there is nothing to read, so use an
+    // explicit harness value and say so. Live mode keeps the fail-closed behaviour.
+    if (process.env.MOCL_LIVE === "1") {
+      throw new Error("runtime maxActiveSubagents unavailable (D-016 fail-closed; set MOCL_MAX_ACTIVE_SUBAGENTS)");
+    }
+    console.log(
+      `[e2e] D-016 runtime value unavailable (no DSH host); offline harness uses ${OFFLINE_RUNTIME_MAX} ` +
+        "(set MOCL_MAX_ACTIVE_SUBAGENTS to override)",
+    );
+    return { read: () => ({ maxActiveSubagents: OFFLINE_RUNTIME_MAX }) };
   }
   return { read: () => ({ maxActiveSubagents: max }) };
 }

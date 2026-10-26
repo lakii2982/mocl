@@ -30,7 +30,9 @@ jobs:
     name: pr contract (process-guard)
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: ${{ !github.event.pull_request.draft }}
+    # Dependabot PRs carry no linked issue/evidence by construction; the CI gates plus
+    # release notes still cover them. A skipped required check is treated as passing.
+    if: ${{ !github.event.pull_request.draft && github.actor != 'dependabot[bot]' }}
     steps:
       # 关键安全设计：检出 base 分支（而不是 PR head/merge ref）来运行门禁脚本。
       # 否则 PR 作者可以改 .github/scripts/check-pr.mjs 来绕过自己的门禁；

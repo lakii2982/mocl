@@ -10,6 +10,7 @@ import { join } from "node:path";
 import { CAPABILITY_BITS, ERROR_CODES, EVENT_TYPES, METHOD_NAMES } from "../../src/abi/index.ts";
 import { DEFAULT_CONFIG, validateConfig } from "../../src/facade/config.ts";
 import { assertStaticPatchFiles, LEGACY_IDS, TOOL_NAMES } from "../../src/plugin/patch.ts";
+import { canonicalJson } from "../lib/util.mjs";
 
 function normalize(text) {
   return String(text).replace(/\s+/gu, " ");
@@ -35,7 +36,12 @@ export default {
 
     const released = [...changelog.matchAll(/^##\s+\[?v?(\d+\.\d+\.\d+)\]?/gmu)].map((match) => match[1]);
     ctx.assert("changelog:has-version", released.includes(pkg.version), `released=${released.join(",")} package=${pkg.version}`);
-    ctx.assert("changelog:not-empty", /##\s+\[?v?0\.1\.0\]?[\s\S]{80,}/u.test(changelog), "0.1.0 段落为空");
+    const escapedVersion = pkg.version.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+    ctx.assert(
+      "changelog:not-empty",
+      new RegExp(`##\\s+\\[?v?${escapedVersion}\\]?[\\s\\S]{80,}`, "u").test(changelog),
+      `${pkg.version} 段落为空`,
+    );
 
     ctx.equal("abi:errors", ERROR_CODES.length, 46);
     ctx.equal("abi:capabilities", CAPABILITY_BITS.length, 34);
@@ -59,7 +65,7 @@ export default {
     const rawDefault = JSON.parse(await read("config.default.json"));
     ctx.assert(
       "config:default-file-matches-engine",
-      JSON.stringify(validateConfig(rawDefault)) === JSON.stringify(DEFAULT_CONFIG),
+      canonicalJson(validateConfig(rawDefault)) === canonicalJson(DEFAULT_CONFIG),
       "config.default.json 与 DEFAULT_CONFIG 不一致",
     );
     ctx.assert("config:fail-closed", rawDefault.global?.enabled === false, String(rawDefault.global?.enabled));

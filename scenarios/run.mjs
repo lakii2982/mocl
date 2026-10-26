@@ -52,7 +52,7 @@ const USAGE = `MOCL 发布前场景回归
   --strict-known           已知缺口也视为失败（发布签收推荐）
   --live                   额外跑真实后端 live smoke（需要本机凭据/服务）
   --list                   列出场景与门禁
-  --json                   只输出 JSON 报告
+  --json                   最后额外打印 JSON 报告
   --keep                   保留 scenarios/tmp 下的临时工作区
   --fail-fast              首个场景失败即停止（仍会写报告）
 

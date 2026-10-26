@@ -62,7 +62,14 @@ interface BaselineReport {
   strictBundle: boolean;
 }
 
-describe("C11 codex 基线断言脚本（D-015 门禁）", () => {
+/**
+ * CI portability: this suite needs a baseline `codex` binary on PATH (or MOCL_CODEX_BIN).
+ * Local machines have it; a clean CI runner does not, and the contract under test is
+ * "what the script does when a baseline exists". Skip instead of failing.
+ */
+const HAS_CODEX = baselineBinary() !== undefined && process.env.MOCL_SKIP_LOCAL_BASELINE_TESTS !== "1";
+
+describe.skipIf(!HAS_CODEX)("C11 codex 基线断言脚本（D-015 门禁）", () => {
   it("正常路径：exit 0，且 --json 报告 106/85/10 与 bundle 结论", { timeout: CASE_TIMEOUT_MS }, () => {
     const binary = baselineBinary();
     expect(
