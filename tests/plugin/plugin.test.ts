@@ -177,6 +177,23 @@ describe("DSH 插件薄壳（subagent_agent / mocl_status）", () => {
     expect(result.error.code).toBe("protocol.invalid-params");
   });
 
+  it("工具返回值做 lossless-JSON 归一化（undefined 不会让宿主判 invalid output）", async () => {
+    const facade = {
+      async open() { return {}; },
+      async send() { return {}; },
+      async status() { return { childId: "sess_1", usage: { costUsd: undefined, inputTokens: 1 }, extra: undefined }; },
+      async list() { return { children: [{ childId: "sess_1", usage: { costUsd: undefined } }] }; },
+      async resume() { return {}; },
+      async interrupt() { return {}; },
+      async close() { return {}; },
+    } as unknown as MoclFacadeLike;
+    const result = await createMoclStatusTool(facade).execute({}, {});
+    const text = JSON.stringify(result);
+    expect(text).toBeDefined();
+    expect(text).not.toContain("undefined");
+    expect(JSON.parse(text as string)).toEqual(result);
+  });
+
   it("runtimeProviderFromContext 读 Host settings 的 subagent.maxActiveSubagents（D-016）", () => {
     const ctx = fakeContext([], { "subagent.maxActiveSubagents": 6 });
     expect(runtimeProviderFromContext(ctx).read()).toEqual({ maxActiveSubagents: 6 });
@@ -185,6 +202,32 @@ describe("DSH 插件薄壳（subagent_agent / mocl_status）", () => {
   it("Host 运行时值缺失 → fail-closed（不默认 8 或任何数字）", () => {
     const provider = runtimeProviderFromContext(fakeContext([], {}));
     expect(() => provider.read()).toThrow(/D-016 fail-closed/);
+  });
+
+  it("runtimeProviderFromContext 读 DSH 真实形状：ctx.get('subagents').config.maxActiveSubagents.get()（D-016）", () => {
+    const ctx: DshHostContext = {
+      tools: { register: () => () => undefined },
+      get: (name: string) =>
+        name === "subagents" ? { config: { maxActiveSubagents: { get: () => 20 } } } : undefined,
+    };
+    expect(runtimeProviderFromContext(ctx).read()).toEqual({ maxActiveSubagents: 20 });
+  });
+
+  it("runtimeProviderFromContext 兼容 SubagentManager.maxActiveSubagents 为函数", () => {
+    const ctx: DshHostContext = {
+      tools: { register: () => () => undefined },
+      get: (name: string) => (name === "subagents" ? { manager: { maxActiveSubagents: () => 5 } } : undefined),
+    };
+    expect(runtimeProviderFromContext(ctx).read()).toEqual({ maxActiveSubagents: 5 });
+  });
+
+  it("runtimeProviderFromContext 非法/非正数 → 仍 fail-closed", () => {
+    const ctx: DshHostContext = {
+      tools: { register: () => () => undefined },
+      get: (name: string) =>
+        name === "subagents" ? { config: { maxActiveSubagents: { get: () => 0 } } } : undefined,
+    };
+    expect(() => runtimeProviderFromContext(ctx).read()).toThrow(/D-016 fail-closed/);
   });
 
   it("插件→真实门面：默认配置 disabled 时工具返回 policy.permission-denied（不假绿）", async () => {

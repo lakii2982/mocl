@@ -53,19 +53,93 @@ function renderJson(_args: UnknownArgs, value: unknown): readonly { type: "text"
   return [{ type: "text", text: JSON.stringify(value, null, 2) }];
 }
 
-/** 从 Host 上下文读取 D-016 的运行时并发值；读不到 → fail-closed。 */
+/**
+ * 宿主 dsh-tools 会对工具返回值做 lossless-JSON 快照校验：对象里只要出现
+ * undefined / 函数 / 类实例，整次调用就变成 ToolOutputError
+ * （"returned invalid output: value is not lossless JSON"），模型只能看到一条
+ * 内部错误。ABI 的可选字段在实现中经常是 undefined，因此在工具边界统一做一次
+ * JSON 归一化（等价 JSON.stringify → JSON.parse：丢弃 undefined、Date→字符串）。
+ */
+export function toLosslessJson<T>(value: T): T {
+  try {
+    const text = JSON.stringify(value);
+    if (text === undefined) throw new Error("value is not JSON-serializable");
+    return JSON.parse(text) as T;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      ok: false,
+      error: {
+        code: "internal.unexpected",
+        category: "internal",
+        message,
+        retryable: "no",
+        userMessage: "兼容层内部错误，请联系维护者",
+        severity: "error",
+        sessionId: null,
+        turnId: null,
+        details: { kind: "internal.unexpected" },
+      },
+    } as unknown as T;
+  }
+}
+
+/**
+ * 从 Host 上下文读取 D-016 的运行时并发值；读不到 → fail-closed。
+ *
+ * DSH 0.2.1-rc.3 的真实形状（`@deepseek-ai/dsh-subagent` 的 Service，服务名 **subagents**，复数）：
+ * - `ctx.get("subagents").config.maxActiveSubagents` 是 volatile 配置（有 `.get()`）；
+ * - `SubagentManager.maxActiveSubagents` 是返回当前值的函数（manager 挂在服务上）。
+ * 旧实现只查了不存在的单数服务名与 settings key，导致门面装配必然失败（工具全部返回 internal 错误）。
+ */
 export function runtimeProviderFromContext(ctx: DshHostContext): RuntimeConfigProvider {
+  const readNumber = (value: unknown): number | undefined => {
+    if (typeof value === "number") return Number.isSafeInteger(value) && value >= 1 ? value : undefined;
+    if (typeof value === "function") {
+      try {
+        return readNumber((value as () => unknown)());
+      } catch {
+        return undefined;
+      }
+    }
+    if (typeof value === "object" && value !== null && typeof (value as { get?: unknown }).get === "function") {
+      try {
+        return readNumber((value as { get: () => unknown }).get());
+      } catch {
+        return undefined;
+      }
+    }
+    return undefined;
+  };
+
   return {
     read(): { maxActiveSubagents: number } {
-      const fromSettings = ctx.settings?.get?.("subagent.maxActiveSubagents");
-      if (typeof fromSettings === "number") return { maxActiveSubagents: fromSettings };
-      const service = ctx.get?.("subagent");
+      const fromSettings = readNumber(ctx.settings?.get?.("subagent.maxActiveSubagents"));
+      if (fromSettings !== undefined) return { maxActiveSubagents: fromSettings };
+
+      let service: unknown;
+      try {
+        service = ctx.get?.("subagents") ?? ctx.get?.("subagent");
+      } catch {
+        service = undefined;
+      }
       if (typeof service === "object" && service !== null) {
-        const value = (service as Record<string, unknown>)["maxActiveSubagents"];
-        if (typeof value === "number") return { maxActiveSubagents: value };
+        const record = service as Record<string, unknown>;
+        const direct = readNumber(record["maxActiveSubagents"]);
+        if (direct !== undefined) return { maxActiveSubagents: direct };
+        const config = record["config"];
+        if (typeof config === "object" && config !== null) {
+          const viaConfig = readNumber((config as Record<string, unknown>)["maxActiveSubagents"]);
+          if (viaConfig !== undefined) return { maxActiveSubagents: viaConfig };
+        }
+        const manager = record["manager"];
+        if (typeof manager === "object" && manager !== null) {
+          const viaManager = readNumber((manager as Record<string, unknown>)["maxActiveSubagents"]);
+          if (viaManager !== undefined) return { maxActiveSubagents: viaManager };
+        }
       }
       throw moclError("protocol.invalid-params", {
-        message: "mocl: cannot read subagent.maxActiveSubagents from DSH host (D-016 fail-closed; not defaulting)",
+        message: "mocl: cannot read subagents.maxActiveSubagents from DSH host (D-016 fail-closed; not defaulting)",
       });
     },
   };
@@ -173,9 +247,9 @@ export function createSubagentAgentTool(facade: MoclFacadeLike | Promise<MoclFac
           ...(validated.permissionMode === undefined ? {} : { permissionMode: validated.permissionMode }),
           ...(validated.maxDepth === undefined ? {} : { maxDepth: validated.maxDepth }),
         });
-        return { ok: true, ...result };
+        return toLosslessJson({ ok: true, ...result });
       } catch (error) {
-        return { ok: false, error: toErrorRef(error) satisfies ErrorRef };
+        return toLosslessJson({ ok: false, error: toErrorRef(error) satisfies ErrorRef });
       }
     },
   };
@@ -212,12 +286,12 @@ export function createMoclStatusTool(facade: MoclFacadeLike | Promise<MoclFacade
         }
         if (typeof childId === "string" && childId.length > 0) {
           const status = await instance.status(childId, cursor === undefined ? 0 : (cursor as number));
-          return { ok: true, status };
+          return toLosslessJson({ ok: true, status });
         }
         const list = await instance.list();
-        return { ok: true, ...list };
+        return toLosslessJson({ ok: true, ...list });
       } catch (error) {
-        return { ok: false, error: toErrorRef(error) satisfies ErrorRef };
+        return toLosslessJson({ ok: false, error: toErrorRef(error) satisfies ErrorRef });
       }
     },
   };

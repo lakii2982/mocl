@@ -66,12 +66,15 @@ export class MoclError extends Error {
 
   /** 投影为 ABI `ErrorRef`（事件/响应使用）。 */
   toErrorRef(extra: { sessionId?: string; turnId?: string } = {}): ErrorRef {
+    // 宿主（dsh-tools）要求工具返回值是 lossless JSON：undefined 字段会把整个
+    // ErrorRef 判成非法输出（ToolOutputError: value is not lossless JSON），
+    // 因此可选字段必须整键省略，不能显式赋 undefined。
     return {
       code: this.code,
       category: this.category,
       message: this.message,
       retryable: this.retryable,
-      retryAfterMs: this.retryAfterMs,
+      ...(this.retryAfterMs === undefined ? {} : { retryAfterMs: this.retryAfterMs }),
       userMessage: this.userMessage,
       severity: this.severity,
       sessionId: extra.sessionId ?? null,
@@ -81,7 +84,7 @@ export class MoclError extends Error {
         (this.backendCode === undefined
           ? { kind: this.code }
           : { kind: this.code, backendCode: this.backendCode }),
-      traceId: this.traceId,
+      ...(this.traceId === undefined ? {} : { traceId: this.traceId }),
       ...(this.causeText === undefined ? {} : { cause: this.causeText }),
     };
   }
