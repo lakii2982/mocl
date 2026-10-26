@@ -1,0 +1,74 @@
+# MOCL Release —— 打 tag（v*）时构建并创建 GitHub Release。
+#
+# 设计原则（对应 BRIEF A4/A8、PLAN R2）：
+#   1. 只在 tag 触发：普通 push 不会发版；发布是显式动作；
+#   2. Release notes 由 CHANGELOG.md 机械提取（零依赖脚本），与仓库文档同源，避免两处维护；
+#   3. 发布前先跑同一套构建门禁（verify-github-config + install --frozen-lockfile + build:plugin），
+#      构建不过就不发布；
+#   4. 权限仅 contents: write（创建 Release 需要），不授予 actions/issues 等其他写权限；
+#   5. 版本一致性硬校验：tag / package.json / CHANGELOG 三者必须一致，否则红色失败（不静默发错版本）。
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+# 同一 tag 的发布不并发；不取消进行中的发布（避免半成品 Release）。
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: build & publish release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: 检出代码（含 tag 历史）
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 校验 GitHub 工程配置（零依赖）
+        run: node .github/scripts/verify-github-config.mjs
+
+      - name: 安装 pnpm（固定版本，与 pnpm-lock.yaml 一致）
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.22.0
+
+      - name: 安装 Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: pnpm
+
+      - name: 安装依赖（可复现构建）
+        run: pnpm install --frozen-lockfile
+
+      - name: 构建可安装插件包
+        run: pnpm -s build:plugin
+
+      # 从 CHANGELOG 提取该 tag 对应版本段落，并断言 tag / package.json / CHANGELOG 一致。
+      - name: 生成 Release notes（CHANGELOG 同源）
+        run: |
+          node .github/scripts/release-notes.mjs \
+            --tag "$GITHUB_REF_NAME" \
+            --changelog CHANGELOG.md \
+            --package package.json \
+            --out "$RUNNER_TEMP/release-notes.md"
+          echo "--- release notes 预览 ---"
+          head -n 40 "$RUNNER_TEMP/release-notes.md"
+
+      - name: 创建 GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "MOCL $GITHUB_REF_NAME" \
+            --notes-file "$RUNNER_TEMP/release-notes.md" \
+            --verify-tag

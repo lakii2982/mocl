@@ -1,0 +1,114 @@
+name: 业务需求 / Requirement
+description: 提交一个业务场景与验收口径。通过 G1（DoR）后由维护者加 agent:ready，进入「agent 实现 → 独立验证 → PR → 合并 → 发布」流程。
+title: "[需求] "
+labels: ["type/feature", "status/needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 你只需要做 3 件事（其余由 agent + 流程完成）
+
+        1. **写这份 issue**：业务场景 / 目标用户 / 成功标准 / 验收口径 / 非目标；
+        2. **在升级点决策**：涉及不可逆动作、权限/凭据、范围取舍、预算时，会有一次明确提问；
+        3. **验收交付**：合并后的 PR + 发布版本 + 交付报告。
+
+        本表单对应流程门禁 **G0 需求受理**。维护者（或 product-owner 角色）会按
+        `docs/process/01-REQUIREMENT-INTAKE.md` 做 G1 澄清；DoR 通过后打 `agent:ready`，
+        agent 才会自动受理。**未打 `agent:ready` 的 issue 不会被自动执行**，这是安全闸门。
+
+        写之前请先确认：不含凭据、个人绝对路径、内部台账内容；公开仓为唯一真源。
+  - type: textarea
+    id: scenario
+    attributes:
+      label: 业务场景
+      description: 谁在什么情况下遇到什么问题；现在的做法与代价。用事实与数字，不写方案。
+      placeholder: |
+        例：团队用 4 个编码 agent（codex/claude-code/kimi/opencode）做同一需求，
+        现在每个 agent 的启动/续接/中断参数都不同，脚本重复维护，一次切换要改 5 个文件。
+    validations:
+      required: true
+  - type: input
+    id: users
+    attributes:
+      label: 目标用户
+      description: 谁会用到这个交付物？内部 dogfood / 开源贡献者 / 业务需求方？
+      placeholder: "例：本团队 3 名工程师 + 外部贡献者"
+    validations:
+      required: true
+  - type: textarea
+    id: success-criteria
+    attributes:
+      label: 成功标准
+      description: 交付后如何判定「确实解决了业务问题」。可观测、可量化，不写「体验更好」。
+      placeholder: |
+        例：同一个需求在 4 个后端上都能一条命令跑通；切换后端只改 1 行配置；
+        端到端耗时从 25 分钟降到 10 分钟以内。
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 验收口径
+      description: 逐条列出可被命令/CI 机械判定的验收点（命令 + 期望退出码或输出）。这是 G4 门禁的输入。
+      placeholder: |
+        - `node tools/validate-abi.mjs` 退出码 0，输出 46/34/35/18
+        - `node e2e/pr-scenario.mjs` 退出码 0，report.status=passed
+        - 新增文档含「如何切换后端」一节，`python3 tools/check_docs.py all` 退出码 0
+    validations:
+      required: true
+  - type: textarea
+    id: non-goals
+    attributes:
+      label: 非目标
+      description: 本需求明确不做什么，防止范围膨胀。写清「不做」比写「要做」更重要。
+      placeholder: |
+        - 不新增第 5 个后端
+        - 不改 ABI 公开字段（要改则先走 RFC）
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 优先级
+      description: 决定排期与是否可被打断。p0 只给阻断/安全/发布问题。
+      options:
+        - "priority/p0 — 阻断（数据/安全/发布不可用）"
+        - "priority/p1 — 高（主流程受影响，本迭代完成）"
+        - "priority/p2 — 中（有替代路径，排期处理）"
+        - "priority/p3 — 低（优化项）"
+    validations:
+      required: true
+  - type: textarea
+    id: risk-and-permission
+    attributes:
+      label: 风险与权限
+      description: 需要写哪些目录/仓库？是否需要网络、凭据、外部服务、不可逆操作？哪些点必须人工决策？
+      placeholder: |
+        例：只改 docs/ 与 tools/；不需要凭据；无不可逆操作。
+        若需要新增 GitHub Actions 权限，必须停下来问 owner。
+    validations:
+      required: true
+  - type: textarea
+    id: references
+    attributes:
+      label: 关联材料（可选）
+      description: 相关 issue / PR / 文档 / 设计稿链接。不要贴凭据或内部路径。
+      placeholder: "例：docs/abi/abi-v0.md §11.2"
+    validations:
+      required: false
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: 提交前自检
+      description: 全部勾选后才能提交；这是 G0 的最低要求。
+      options:
+        - label: 已阅读 CONTRIBUTING.md 与 docs/process/ 中的需求受理流程
+          required: true
+        - label: 已写明验收口径，且每条都能用命令或 CI 判定
+          required: true
+        - label: 已写明非目标与风险/权限边界
+          required: true
+        - label: 不含凭据、个人绝对路径、内部台账或未公开材料
+          required: true
+        - label: 我理解 DoR 通过并被加 agent:ready 后，agent 会自动开工；关键决策点仍会问我
+          required: true

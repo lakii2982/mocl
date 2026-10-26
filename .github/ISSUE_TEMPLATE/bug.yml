@@ -1,0 +1,98 @@
+name: 缺陷 / Bug
+description: 报告可复现的缺陷、回归或与文档承诺不符的行为。请先搜索已有 issue。
+title: "[缺陷] "
+labels: ["type/bug", "status/needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        提交前请确认：**已搜过已有 issue**；日志与配置已脱敏（去掉 token、cookie、个人绝对路径）。
+        安全漏洞不要走公开 issue：请用 Security 页的私密报告入口（见下方 Contact Links）。
+
+        本表单对应流程门禁 **G0 需求受理**；复现步骤完整（DoR 通过）后会被打 `agent:ready` 并由 agent 接手。
+  - type: textarea
+    id: summary
+    attributes:
+      label: 问题概述
+      description: 一句话说清「什么地方、什么情况下、出了什么问题」。
+      placeholder: "例：codex 适配器在 resume 时新建了会话，上下文丢失"
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: 复现环境
+      description: 版本、平台、后端、Node/pnpm 版本、配置文件（脱敏）。可用命令输出代替手写。
+      placeholder: |
+        - OS: macOS 15 / Ubuntu 24.04
+        - Node: v24.18.1，pnpm: 11.22.0
+        - 后端：codex 0.164.0
+        - `node --version && git rev-parse --short HEAD` 输出：
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 逐步命令。别人照着能复现是唯一标准。
+      placeholder: |
+        1. `cd mocl && pnpm install --frozen-lockfile`
+        2. `node e2e/pr-scenario.mjs`
+        3. 观察到 ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected-actual
+    attributes:
+      label: 期望行为 vs 实际行为
+      description: 分别写出期望与实际；若有报错码（如 transport.timeout / quota.rate-limited）请原样贴出。
+      placeholder: |
+        期望：...
+        实际：...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志与证据（脱敏）
+      description: 相关命令输出、CI 链接、截图。禁止粘贴凭据、token、cookie、个人绝对路径。
+      render: shell
+      placeholder: |
+        $ node e2e/pr-scenario.mjs
+        ...
+    validations:
+      required: true
+  - type: dropdown
+    id: impact
+    attributes:
+      label: 影响范围
+      description: 影响面决定优先级。
+      options:
+        - "阻断：主流程不可用 / 数据或安全风险"
+        - "严重：功能不可用但有替代路径"
+        - "一般：体验或边界场景问题"
+        - "轻微：文档/提示/排版"
+    validations:
+      required: true
+  - type: textarea
+    id: attempted
+    attributes:
+      label: 已尝试的排查（可选）
+      description: 试过哪些命令/配置、结果如何；能节省定位时间。
+      placeholder: "例：清 node_modules 重装无效；换 codex 0.153.4 后不复现"
+    validations:
+      required: false
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: 提交前自检
+      description: 全部勾选后才能提交。
+      options:
+        - label: 已搜索过已有 issue/PR，确认不是重复
+          required: true
+        - label: 复现步骤与命令完整，别人可照做
+          required: true
+        - label: 日志/配置已脱敏（无 token、cookie、个人绝对路径）
+          required: true
+        - label: 涉及安全漏洞的细节已改为私密报告渠道，未写进本 issue
+          required: true

@@ -1,0 +1,132 @@
+# MOCL 标签体系（唯一真源）
+#
+# 用途：
+#   - issue 表单 / PR 流程 / orchestrator 全都按这里的名字打标，禁止在别处硬编码新标签；
+#   - 同步到 GitHub：node .github/scripts/sync-labels.mjs --dry-run（预览） / --apply（写入，需要 gh 登录）；
+#   - 一致性校验：node .github/scripts/verify-github-config.mjs 会断言
+#     「标签唯一」「类别齐全」「issue 模板引用的标签都存在」「agent:ready 存在」。
+#
+# 命名约定：
+#   type/*     变更性质
+#   area/*     代码/文档区域
+#   priority/* 业务优先级（p0 最高）
+#   status/*   流程状态（由人或 agent 推进）
+#   agent:*    agent 派发开关（R4 orchestrator 只消费 agent:ready / agent:blocked）
+#   size/*     体量（评审排期用）
+#
+# 注意：GitHub 标签名区分大小写，统一小写。
+
+# ── type/* ──────────────────────────────────────────────────────────────
+- name: "type/feature"
+  color: "0e8a16"
+  description: "新能力、功能增强或业务需求实现"
+- name: "type/bug"
+  color: "d73a4a"
+  description: "缺陷、回归或与文档承诺不符的行为"
+- name: "type/docs"
+  color: "0075ca"
+  description: "文档、示例、流程手册的增改"
+- name: "type/refactor"
+  color: "fbca04"
+  description: "不改变外部行为的重构"
+- name: "type/test"
+  color: "5319e7"
+  description: "测试、夹具、门禁脚本的增改"
+- name: "type/chore"
+  color: "c5def5"
+  description: "构建、CI、依赖、仓库维护"
+- name: "type/security"
+  color: "b60205"
+  description: "安全相关（凭据、权限、供应链、注入）"
+
+# ── area/* ──────────────────────────────────────────────────────────────
+- name: "area/core"
+  color: "1d76db"
+  description: "核心兼容层（src/、ABI、facade）"
+- name: "area/abi"
+  color: "1d76db"
+  description: "ABI 契约与 schema"
+- name: "area/adapters"
+  color: "1d76db"
+  description: "codex / claude-code / kimi / opencode 适配器"
+- name: "area/orchestrator"
+  color: "1d76db"
+  description: "本地交付引擎 orchestrator/"
+- name: "area/docs"
+  color: "1d76db"
+  description: "docs/ 文档与流程手册"
+- name: "area/ci"
+  color: "1d76db"
+  description: "GitHub Actions、Issue/PR 模板、门禁脚本"
+- name: "area/release"
+  color: "1d76db"
+  description: "版本、CHANGELOG、发布与回滚"
+
+# ── priority/* ──────────────────────────────────────────────────────────
+- name: "priority/p0"
+  color: "b60205"
+  description: "P0 阻断：数据/安全/发布不可用，立刻处理"
+- name: "priority/p1"
+  color: "d93f0b"
+  description: "P1 高：影响主流程，当前迭代内必须完成"
+- name: "priority/p2"
+  color: "fbca04"
+  description: "P2 中：有替代路径，排期处理"
+- name: "priority/p3"
+  color: "c2e0c6"
+  description: "P3 低：优化项、体验改进"
+
+# ── status/* ────────────────────────────────────────────────────────────
+- name: "status/needs-triage"
+  color: "fbca04"
+  description: "待分诊：尚未确认优先级与 DoR"
+- name: "status/needs-info"
+  color: "d4c5f9"
+  description: "待补充信息：阻塞在 issue 作者"
+- name: "status/accepted"
+  color: "0e8a16"
+  description: "已受理：通过 G1（DoR）并排期"
+- name: "status/in-progress"
+  color: "1d76db"
+  description: "实现中：已开分支/worktree"
+- name: "status/in-review"
+  color: "5319e7"
+  description: "评审中：PR 已开，等待 G5"
+- name: "status/blocked"
+  color: "b60205"
+  description: "阻塞：需要人工决策、凭据或外部依赖"
+- name: "status/done"
+  color: "0e8a16"
+  description: "已完成：合并并交付"
+
+# ── agent:* ─────────────────────────────────────────────────────────────
+# 由人在 G1 门禁后手动打 agent:ready；orchestrator 只消费这些标签。
+- name: "agent:ready"
+  color: "0366d6"
+  description: "可被 agent 自动受理：DoR 通过、写域与验收口径明确"
+- name: "agent:running"
+  color: "f9d0c4"
+  description: "agent 正在执行（orchestrator 持锁，避免重复派发）"
+- name: "agent:review"
+  color: "c5def5"
+  description: "等待独立 verifier / reviewer（新上下文）"
+- name: "agent:blocked"
+  color: "d73a4a"
+  description: "agent 连续失败或越权，已停下并 @owner"
+
+# ── size/* ──────────────────────────────────────────────────────────────
+- name: "size/xs"
+  color: "ededed"
+  description: "XS：<50 行，单文件"
+- name: "size/s"
+  color: "d4c5f9"
+  description: "S：50–200 行，1–2 文件"
+- name: "size/m"
+  color: "fbca04"
+  description: "M：200–500 行，跨 3+ 文件"
+- name: "size/l"
+  color: "f9d0c4"
+  description: "L：500–1500 行，需 RFC"
+- name: "size/xl"
+  color: "b60205"
+  description: "XL：>1500 行，必须拆分或走 RFC"

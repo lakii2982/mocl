@@ -1,0 +1,143 @@
+# MOCL CI —— 每次 push / PR 到 main 的硬门禁。
+#
+# 设计原则（对应 BRIEF A3/A4、PLAN R2）：
+#   1. 只读：permissions 最小化，CI 不执行任何写操作（不建分支、不发评论、不合并、不写 GitHub）；
+#   2. 可复现：pnpm 版本与 lockfile 一致，`pnpm install --frozen-lockfile`；
+#   3. 门禁即真源：每个验收命令都在 scripts 里，CI 只负责按顺序跑并保留原始输出；
+#   4. 不静默：门禁文件缺失或检查失败一律红灯（no skip-on-missing），不假装通过。
+#
+# job 名已冻结并进入分支保护 required checks（勿改名）：
+#   build & contracts (node 24 / pnpm 11) / e2e pr-scenario (offline) / docs gate
+#
+# 运行环境：ubuntu-latest + Node 24（package.json engines: node>=24）+ pnpm 11.22.0
+# （版本依据：仓库 node_modules/.modules.yaml 的 packageManager=pnpm@11.22.0）。
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# 同一分支的新提交会取消仍在跑的旧 CI，节省额度并避免旧结论覆盖新结论。
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ── 门禁 A：构建 + 契约 + 单元测试 + 工程配置自检 ──────────────────────
+  build-and-test:
+    name: build & contracts (node 24 / pnpm 11)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 校验 GitHub 工程配置（零依赖，先于安装依赖）
+        run: node .github/scripts/verify-github-config.mjs
+
+      - name: 工程配置校验器自检（变异副本，证明校验器真的会红）
+        run: node .github/scripts/verify-github-config.mjs --self-test
+
+      - name: 安装 pnpm（固定版本，与 pnpm-lock.yaml 一致）
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.22.0
+
+      - name: 安装 Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: pnpm
+
+      - name: 安装依赖（可复现构建）
+        run: pnpm install --frozen-lockfile
+
+      - name: 类型检查
+        run: pnpm -s typecheck
+
+      - name: 单元 / 契约测试
+        run: pnpm -s test
+
+      - name: ABI 契约校验（46/34/35/18）
+        run: pnpm -s validate
+
+      - name: schema 与设计真源同步检查
+        run: node tools/sync-schema.mjs --check
+
+      - name: 构建可安装插件包
+        run: pnpm -s build:plugin
+
+      # 以下门禁文件由 R1/R3/R4 切片提供，首次推送前必须已合入。
+      # 它们是硬门禁：文件缺失或检查失败一律让 CI 变红（不静默跳过）。
+      - name: 泄漏扫描（公开内容合规）
+        run: node tools/leak-scan.mjs
+
+      - name: 角色 prompt 校验（R3）
+        run: node agents/verify-agents.mjs
+
+      - name: 流程编排门禁（orchestrator 单测，R4）
+        run: node --test orchestrator/test/
+
+  # ── 门禁 B：L4 端到端（离线，零额度、零网络凭据）─────────────────────
+  e2e:
+    name: e2e pr-scenario (offline)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 pnpm（固定版本，与 pnpm-lock.yaml 一致）
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.22.0
+
+      - name: 安装 Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: pnpm
+
+      # 必须安装依赖：e2e 通过 src/abi/validate.ts 的 createRequire 使用 ajv（运行时依赖）。
+      # 曾验证：干净检出且无 node_modules 时 e2e 会以 MODULE_NOT_FOUND: ajv 失败。
+      - name: 安装依赖（可复现构建）
+        run: pnpm install --frozen-lockfile
+
+      # 离线档注入假适配器；不设置 MOCL_LIVE 即为离线（零额度、零凭据）。
+      - name: L4 端到端 PR 演练（离线）
+        run: |
+          node --version
+          git --version
+          node e2e/pr-scenario.mjs
+
+  # ── 门禁 C：文档闸门（硬门禁；job 名 `docs gate` 已进分支保护 required checks）──
+  docs:
+    name: docs gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 文档结构闸门（硬门禁）
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 --version
+          if [ ! -f tools/check_docs.py ]; then
+            echo "::error title=文档门禁缺失::tools/check_docs.py 不存在：文档门禁无法执行，按不静默原则直接失败"
+            exit 1
+          fi
+          python3 tools/check_docs.py all 2>&1 | tee "$RUNNER_TEMP/docs-gate.log"
+          {
+            echo "### 文档闸门结果：exit=0"
+            echo ""
+            echo '```'
+            tail -n 20 "$RUNNER_TEMP/docs-gate.log"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

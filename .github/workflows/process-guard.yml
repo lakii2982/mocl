@@ -1,0 +1,67 @@
+# MOCL process-guard —— PR 契约门禁（G4/G5 的机械前置检查）。
+#
+# 设计原则：
+#   1. 用 pull_request（不是 pull_request_target）：fork PR 拿不到可写 token；
+#      只读 PR 的 title/body 作为**文本数据**，不执行 PR 里的任何代码；
+#   2. 检出 base 分支的 sha 来运行门禁脚本：PR 作者改自己的 check-pr.mjs 无法自放行
+#      （改规则文件必须由人在 G5 评审，见 docs/process/00-OPERATING-MODEL.md §自我修改保护）；
+#   3. 只读权限：contents: read + pull-requests: read，不做任何写操作（不打标、不评论、不合并）；
+#   4. 校验逻辑在 .github/scripts/check-pr.mjs（零依赖、可本地复跑、带 --self-test）；
+#      检查项：关联 issue、必需小节（关联 issue/证据表/风险与回滚）、证据表（命令/退出码，
+#      禁止占位符与非零退出码，SKIP 不得替代绿证据）、Conventional Commits 标题、检查清单至少 1 项已勾；
+#   5. draft PR 不门禁（还在写），转为 ready for review 后自动重跑。
+name: PR 契约
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+    branches: [main]
+
+concurrency:
+  group: process-guard-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  pr-contract:
+    name: pr contract (process-guard)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: ${{ !github.event.pull_request.draft }}
+    steps:
+      # 关键安全设计：检出 base 分支（而不是 PR head/merge ref）来运行门禁脚本。
+      # 否则 PR 作者可以改 .github/scripts/check-pr.mjs 来绕过自己的门禁；
+      # 规则文件（.github/**）的修改必须由人在 G5 评审（docs/process/00-OPERATING-MODEL.md §自我修改保护）。
+      - name: 检出 base 分支（门禁脚本以 base 版本为准）
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+
+      - name: 安装 Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      # PR 正文/标题通过环境变量传入（避免表达式直接拼进 shell 造成注入），
+      # 再落盘为文件交给脚本；脚本本身只读文件，不执行任何 PR 内容。
+      - name: 校验 PR 契约
+        shell: bash
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          body_file="$RUNNER_TEMP/pr-body.md"
+          printf '%s' "${PR_BODY:-}" > "$body_file"
+          node .github/scripts/check-pr.mjs \
+            --body-file "$body_file" \
+            --title "$PR_TITLE" \
+            --number "$PR_NUMBER"
+
+      - name: 校验器自检（保护门禁本身）
+        run: node .github/scripts/check-pr.mjs --self-test

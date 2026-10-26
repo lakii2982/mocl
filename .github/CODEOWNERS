@@ -1,0 +1,25 @@
+# CODEOWNERS — MOCL 代码归属（GitHub 用它自动请求评审）
+#
+# 语法： <pattern> <owner>...
+#   - pattern 支持 `*`、`**`、`?`；后出现的规则覆盖先出现的规则；
+#   - owner 必须是 @用户 或 @组织/团队，且该身份对本仓库有写权限，否则该条规则被静默忽略。
+#
+# 当前阶段（R 阶段，2026-10 开源化）：单维护者模式。
+# 所有文件由 @lakii2982 最终负责；agent 是该身份的「执行器」，不是独立 owner ——
+# GitHub 上的评审请求与合并权限仍归人类维护者，agent 的产出必须经 G5 评审。
+* @lakii2982
+
+# ── 未来扩展（启用前需先满足两个前提）──────────────────────────────────
+# 前提 1：对应身份已加入组织/仓库并拥有写权限，否则 CODEOWNERS 规则不生效；
+# 前提 2：docs/process/ 的 RACI 表已写明该角色的写域与升级点，避免职责交叉。
+#
+# 团队扩到 2 人以上时，取消注释并按写域拆分（示例，勿直接照抄用户名）：
+#
+# /docs/process/        @lakii2982 @mocl-process-owner
+# /orchestrator/        @lakii2982 @mocl-orchestrator-owner
+# /.github/             @lakii2982 @mocl-release-owner
+# /src/                 @lakii2982 @mocl-core-owner
+# /docs/abi/            @lakii2982 @mocl-core-owner
+#
+# agent 账号（若未来以独立 GitHub App / bot 身份提 PR）只作为 author，
+# 不作为 CODEOWNER：评审责任不能交给生产者自己（G5 要求独立上下文）。

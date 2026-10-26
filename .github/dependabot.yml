@@ -1,0 +1,45 @@
+# Dependabot 配置（GitHub 原生依赖更新）
+#
+# 策略：
+#   - npm 生产依赖 & 开发依赖分开分组，减少 PR 噪声；
+#   - GitHub Actions 固定每周检查（action 大版本升级仍要人工评审，不自动合并）；
+#   - 不配置 auto-merge：升级必须经 CI + 人工评审（G5），因为 lockfile 变化会影响可复现构建（BRIEF A2）。
+#   - 标签只用 labels.yml 中已存在的名字，避免 Dependabot 因标签不存在而报错。
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Shanghai"
+    open-pull-requests-limit: 5
+    labels:
+      - "type/chore"
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+    groups:
+      development-dependencies:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+      production-dependencies:
+        dependency-type: "production"
+        update-types:
+          - "patch"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Shanghai"
+    open-pull-requests-limit: 3
+    labels:
+      - "type/chore"
+    commit-message:
+      prefix: "ci(deps)"

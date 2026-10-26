@@ -1,0 +1,13 @@
+# Issue 模板选择页配置。
+# blank_issues_enabled=false：禁止空白 issue —— 所有 issue 必须经过表单，保证 G0 所需字段齐全。
+blank_issues_enabled: false
+contact_links:
+  - name: 使用 / 安装 / 架构文档
+    url: https://github.com/lakii2982/mocl/tree/main/docs
+    about: 先读文档：安装、ABI、适配器、集成、测试计划与流程手册都在 docs/。
+  - name: 开发流程与门禁（G0–G7）
+    url: https://github.com/lakii2982/mocl/tree/main/docs/process
+    about: 了解需求如何被受理、验证、评审、合并与发布；以及你需要在哪些升级点做决策。
+  - name: 安全漏洞（私密报告）
+    url: https://github.com/lakii2982/mocl/security/advisories/new
+    about: 请勿在公开 issue 中披露漏洞细节；通过私密 Security Advisory 报告。
