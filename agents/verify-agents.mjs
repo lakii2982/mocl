@@ -270,6 +270,20 @@ check("process:decision-only", () => {
   return "最小人类参与（决策式）+ workflow-designer 已写入 00/11 与角色文件";
 });
 
+check("process:rule-change-approval", () => {
+  const labelsYml = readRequired(".github/labels.yml");
+  if (!labelsYml.includes('- name: "needs-human-review"')) {
+    throw new Error(".github/labels.yml 缺 needs-human-review（R-10 规则自修改人工批准标签）");
+  }
+  const model = readRequired("docs/process/00-OPERATING-MODEL.md");
+  mustInclude(model, ["needs-human-review", "逐字引用用户原话", "不豁免 G5"], "00 规则自修改批准链");
+  const review = readRequired("docs/process/05-REVIEW-MERGE.md");
+  mustInclude(review, ["needs-human-review"], "05 评审/合并");
+  const mode = readRequired("docs/process/11-CONVERSATION-MODE.md");
+  mustInclude(mode, ["needs-human-review", "逐字引用", "G5 仍由新上下文 reviewer"], "11 对话式规则保护");
+  return "R-10 批准链：标签 + 原话记录 + G5 不豁免，均写入 00/05/11";
+});
+
 check("cli:contract", () => {
   const cli = ["intake", "deliver", "verify", "watch", "status"];
   const docsText = readRequired("docs/process/10-DSH-LOCAL-AGENTS.md");
@@ -351,6 +365,7 @@ const LABEL_REQUIRED = [
   "status/blocked",
   "status/done",
   "status/accepted",
+  "needs-human-review",
 ];
 
 check("labels:source-of-truth", () => {

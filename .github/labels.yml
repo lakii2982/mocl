@@ -77,6 +77,9 @@
   description: "P3 低：优化项、体验改进"
 
 # ── status/* ────────────────────────────────────────────────────────────
+- name: "needs-human-review"
+  color: "b60205"
+  description: "规则文件（.github/**、agents/**、docs/process/**）或高风险变更：必须有人工批准记录（含对话式原话）"
 - name: "status/needs-triage"
   color: "fbca04"
   description: "待分诊：尚未确认优先级与 DoR"

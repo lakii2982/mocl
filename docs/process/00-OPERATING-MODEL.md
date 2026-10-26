@@ -7,7 +7,7 @@
 
 ## 1. 目标与不变量
 
-1. **用户只做 3 件事**：写 issue（业务场景 + 需求）、在升级点做决策、验收交付。其余全部由 agent 与自动化完成。
+1. **用户只做 3 件事**：提出需求（对话式口述 / issue 式填写）、在升级点做决策、验收交付。其余全部由 agent 与自动化完成。对话式入口见 `11-CONVERSATION-MODE.md`。
 2. **交付定义**：一次合格交付 = 已合并 PR（`gh pr view <n> --json state,mergedAt` 显示 `MERGED`）+ 发布版本（`gh release view vX.Y.Z`）+ 交付报告（issue 评论，模板见 `07-DELIVERY-REPORT.md`）。
 3. **单一真源**：GitHub 仓库是唯一真源；本地只允许存在 gitignored 的运行产物（`.agentspec/`）与 worktree（`.worktrees/`）。
 4. **证据可复跑**：任何"已完成/已通过"必须附「命令 + 退出码 + 原始输出」，协议见 `04-VERIFICATION.md` §1。没有证据的完成陈述按未完成处理。
@@ -140,7 +140,13 @@ R = Responsible（执行），A = Accountable（最终负责），C = Consulted�
 | 读取/打印凭据 | 禁止 | 禁止（env 白名单） | 允许但不入库 |
 | 降低门禁强度 | 禁止（升级 E-06） | 禁止 | 允许 |
 
-**自我修改保护**：`.github/**`（CI/模板/labels/CODEOWNERS）、`agents/**`（角色 prompt）、`docs/process/**`（本手册）三个目录是"规则本身"。对它们的 PR 必须由**人**在 G5 追加批准（`needs-human-review` 标签 + 用户评论「批准」），否则 release-manager 不得合并。原因：agent 改自己的规则等于绕过门禁。
+**自我修改保护**：`.github/**`（CI/模板/labels/CODEOWNERS）、`agents/**`（角色 prompt）、`docs/process/**`（本手册）三个目录是"规则本身"。对它们的 PR 必须有**可机械核查的人工批准记录**，否则 release-manager 不得合并：
+
+1. PR 打 `needs-human-review` 标签（`.github/labels.yml` 必须定义该标签）；
+2. PR 评论必须**逐字引用用户原话**（含日期），并注明批准范围；开发者模式可由用户在 GitHub 上直接评论「批准」；**对话式模式**由 DSH 把用户在会话中的原话转录为评论（可核查、不可改写原意），视为等价记录；
+3. 该流程**不豁免 G5**：reviewer（新上下文）仍须独立复跑并给 `VERDICT: APPROVE`；`needs-human-review` 只解决"人是否同意改规则"，不替代技术评审。
+
+原因：agent 改自己的规则等于绕过门禁；同时 conversation mode 只改变业务方操作 GitHub 的方式，不改变 R-10 与 G5 的独立性。
 
 ## 7. 文件与命令地图
 
