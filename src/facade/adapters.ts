@@ -73,7 +73,8 @@ function resolveOpenCodeHttp(config: BackendConfig, deps: BackendAdapterDeps): O
  * 先把 handler 缓存；只有真正发起会话操作（open/resume/…）时才创建客户端并
  * 一次性注册缓存 handler。`terminate()` 在从未创建客户端时是纯 no-op。
  */
-class LazyAcpClient implements AcpApi {
+/** Exported for the assembly tests (terminate/onUpdate no-spawn guarantees). */
+export class LazyAcpClient implements AcpApi {
   readonly #config: BackendConfig;
   #client: AcpClient | undefined;
   #pendingUpdateHandlers: ((params: AcpSessionUpdateParams) => void)[] = [];
