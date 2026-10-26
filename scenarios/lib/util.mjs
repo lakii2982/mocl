@@ -168,6 +168,16 @@ export async function makeRepoFixture(root) {
   return root;
 }
 
+/** 键排序后的 JSON 字符串：用于「结构相等」断言，避免键顺序导致假失败。 */
+export function canonicalJson(value) {
+  if (Array.isArray(value)) return `[${value.map((item) => canonicalJson(item)).join(",")}]`;
+  if (value !== null && typeof value === "object") {
+    const keys = Object.keys(value).sort();
+    return `{${keys.map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
 export function formatValue(value) {
   if (typeof value === "string") return value;
   try {

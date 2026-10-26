@@ -8,6 +8,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { DEFAULT_CONFIG, validateConfig } from "../../src/facade/config.ts";
+import { canonicalJson } from "../lib/util.mjs";
 import { BACKENDS, configFor, createStack, runtimeAt } from "../lib/factories.mjs";
 import { fakeAdapters } from "../lib/fake-backends.mjs";
 
@@ -41,7 +42,7 @@ export default {
     );
     ctx.assert(
       "default:matches-engine-defaults",
-      JSON.stringify(config) === JSON.stringify(DEFAULT_CONFIG),
+      canonicalJson(config) === canonicalJson(DEFAULT_CONFIG),
       "config.default.json 与 src/facade/config.ts 的 DEFAULT_CONFIG 不一致",
     );
 
