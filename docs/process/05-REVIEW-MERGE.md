@@ -24,7 +24,7 @@
 | R-7 | 文档 | 行为/命令/配置变化已同步 docs；文档 PR 不改变事实数字 | docs diff |
 | R-8 | 回滚 | PR 描述给出可执行 revert 步骤；高风险变更说明监控方式 | PR body |
 | R-9 | 证据 | G4 结论 PASS，YELLOW 项已声明且可接受 | PR 评论 |
-| R-10 | 规则自修改 | 若命中 `.github/**`、`agents/**`、`docs/process/**` → 需 `needs-human-review` + 用户评论「批准」 | labels + 评论 |
+| R-10 | 规则自修改 | 若命中 `.github/**`、`agents/**`、`docs/process/**` → 需 `needs-human-review` + 可机械核查的人工批准记录（`00` §6：**逐字原话 + 日期 + 批准范围 + 不豁免 G5**；对话式由 DSH 转录，开发者模式由用户直接评论） | labels + 评论 |
 
 R-10 是硬门禁：agent 不得批准「修改规则本身」的 PR 代替人。
 
@@ -112,7 +112,7 @@ gh pr view <n> --json comments \
 | M-3 | reviewer 评论含 `VERDICT: APPROVE` 且 R-1..R-10 有结论 | §4.1 的 `jq` 命令 ≥1 |
 | M-4 | PR head = 已评审的 SHA（评审后无新提交） | `gh pr view <n> --json headRefOid` 与评审评论里的 SHA 一致 |
 | M-5 | 分支 up-to-date 且 `git status --short` 干净 | `git fetch && git status --short` |
-| M-6 | 不是规则自修改 PR（或已获人批准） | `.github/**`/`agents/**`/`docs/process/**` + `needs-human-review` |
+| M-6 | 不是规则自修改 PR（或已获人批准：`needs-human-review` + `00` §6 的等价批准记录：逐字原话/日期/范围/不豁免 G5） | `.github/**`/`agents/**`/`docs/process/**` + `needs-human-review` |
 
 ### 4.3 替代强制力与记录
 
