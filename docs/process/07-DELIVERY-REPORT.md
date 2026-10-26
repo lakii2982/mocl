@@ -73,6 +73,7 @@ CI：<workflow run URL>　结论：success（<gh run list 原文>）
 |---|---|---|
 | 归档到本地 | 写入 `.agentspec/runs/<iso>/DELIVERY-REPORT.md` | 文件存在且 ≥ 模板 10 段 |
 | 发到 issue（公开） | `gh issue comment <n> --body-file .agentspec/runs/<iso>/DELIVERY-REPORT.md` | 评论 URL 存在 |
+| 发对话摘要（对话式） | 合并/发布后由 DSH 把本文的 5 段人话摘要（`11` §5）发到对话 | 摘要与 issue 完整版同源、不矛盾 |
 | 关联 Release | Release notes 末尾追加 `交付报告：<issue 评论 URL>` | `gh release view` 可见 |
 | 用户验收后归档 | `gh issue edit <n> --add-label "status/accepted"`；报告路径写入 `CHANGELOG.md` 版本段（可选） | label 存在 |
 

@@ -278,7 +278,7 @@ check("process:rule-change-approval", () => {
   const model = readRequired("docs/process/00-OPERATING-MODEL.md");
   mustInclude(model, ["needs-human-review", "逐字引用用户原话", "不豁免 G5"], "00 规则自修改批准链");
   const review = readRequired("docs/process/05-REVIEW-MERGE.md");
-  mustInclude(review, ["needs-human-review"], "05 评审/合并");
+  mustInclude(review, ["needs-human-review", "逐字原话", "不豁免 G5"], "05 评审/合并 R-10 判据");
   const mode = readRequired("docs/process/11-CONVERSATION-MODE.md");
   mustInclude(mode, ["needs-human-review", "逐字引用", "G5 仍由新上下文 reviewer"], "11 对话式规则保护");
   return "R-10 批准链：标签 + 原话记录 + G5 不豁免，均写入 00/05/11";

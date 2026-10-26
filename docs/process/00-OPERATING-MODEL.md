@@ -18,7 +18,7 @@
 
 | Gate | 名称 | 负责角色（R） | 触发 | 关键命令/动作 | 出口判据（Done） | 产物落点 | label 变化 |
 |---|---|---|---|---|---|---|---|
-| **G0** | 需求受理 | product-owner | 用户提交 issue | 读 issue 模板字段；`gh issue view <n> --json title,body,labels` | 字段齐全（模板必填项非空）、类型/优先级已打标 | issue 本体 | `type/*` `priority/*` `area/*` |
+| **G0** | 需求受理 | product-owner | 需求进入（对话式由 DSH 代建 issue / issue 式用户提交） | 读 issue 模板字段；`gh issue view <n> --json title,body,labels` | 字段齐全（模板必填项非空）、类型/优先级已打标 | issue 本体 | `type/*` `priority/*` `area/*` |
 | **G1** | 澄清与 DoR | pm | G0 通过 | 写澄清评论/编辑 issue；`node orchestrator/cli.mjs intake --issue <n>` | DoR 8 条全过（`01-REQUIREMENT-INTAKE.md` §3），验收口径 ≥3 条且可执行 | `.agentspec/issues/<n>/BRIEF.md` + issue 评论 | `agent:ready`（或 `status/needs-info`） |
 | **G2** | 设计与 RFC/ADR | architect | `agent:ready` 且命中 RFC 触发条件 | 写 `docs/rfc/NNNN-<slug>.md`；必要时 `docs/adr/NNNN-<slug>.md` | RFC 合并进 `main`，或免 RFC 的设计说明评论 ≥5 行 | `docs/rfc/` `docs/adr/` + issue 链接 | 无（RFC 单独 PR） |
 | **G3** | 实现 | implementer | G2 通过 | `git worktree add .worktrees/issue-<n> -b agent/<n>-<slug>`；改代码；`git commit`（Conventional Commits）；`git push`；`gh pr create` | PR 存在、`Closes #<n>`、PR 模板证据表已填、本地门禁至少 typecheck+相关测试绿 | 分支 `agent/<n>-<slug>` + PR | `status/in-progress` + `agent:running` → `status/in-review` + `agent:review` |
