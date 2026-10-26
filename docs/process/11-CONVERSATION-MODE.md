@@ -141,6 +141,11 @@ DSH：完成。一句话结果：现在发版前会自动检查文档链接，�
 - 默认流程适用时也要写明理由；不适用时允许 AI 改动工作流设计，但**门禁强度只能加强不能削弱**。
 - 人类决策点必须在设计阶段就列出来（默认 ≤2），而不是执行中随机冒出来。
 
+**当前实现边界（诚实声明）**：`orchestrator` 的 `deliver` 目前**尚未自动调用** `workflow-designer`——
+PLAN 由 conductor（DSH 会话）在派发前生成并落到 `.agentspec/issues/<n>/PLAN.md`，`implementer` 读取它执行。
+把 designer 接入自动流水线（`intake` 产出 PLAN、`deliver` 消费 PLAN）是后续工作，跟踪 issue #16；
+接入前不会宣称「全自动自设计工作流」，只宣称「conductor 自设计 + 引擎自执行」。
+
 ### 11.3 AI 自驱动的执行循环
 
 ```text
