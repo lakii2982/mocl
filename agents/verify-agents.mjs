@@ -3,7 +3,7 @@
  * agents/verify-agents.mjs — MOCL 流程资产自检（零依赖，Node >= 24）
  *
  * 校验内容（全部为机械断言，失败即 exit 1）：
- *  1) 8 个角色文件存在，且每份含六段：职责 / 输入 / 输出 / 禁止事项 / 完成判据 / 回报格式；
+ *  1) 9 个角色文件存在，且每份含六段：职责 / 输入 / 输出 / 禁止事项 / 完成判据 / 回报格式；
  *     禁止事项 >=3 条、完成判据 >=3 个 checkbox、回报格式含「一句话」；
  *  2) verifier / reviewer 含「新上下文」与「不采信」（独立验证纪律）；
  *  3) docs/process/00..11 共 12 份存在，且各含规定小节关键词；
@@ -11,7 +11,7 @@
  *  5) orchestrator CLI 契约名 intake/deliver/verify/watch/status 出现在 10 + agents/README.md；
  *  6) G4 门禁 ID（G4-C1..G4-C11）出现在 04-VERIFICATION.md；其引用的仓库内命令文件真实存在；
  *  7) package.json 含 typecheck / test 脚本（G4-C1/C2 的命令真源）；
- *  8) 角色索引 agents/README.md 覆盖全部 8 个角色名；
+ *  8) 角色索引 agents/README.md 覆盖全部 9 个角色名；
  *  9) agents/** 与 docs/process/** 不含内部台账/个人路径字面量（公开仓泄漏防线）。
  *
  * 用法：node agents/verify-agents.mjs [--quiet]
@@ -101,6 +101,7 @@ const ROLES = [
   { file: "agents/roles/product-owner.md", name: "product-owner", gate: "G0" },
   { file: "agents/roles/pm.md", name: "pm", gate: "G1" },
   { file: "agents/roles/architect.md", name: "architect", gate: "G2" },
+  { file: "agents/roles/workflow-designer.md", name: "workflow-designer", gate: "G1.5" },
   { file: "agents/roles/implementer.md", name: "implementer", gate: "G3" },
   { file: "agents/roles/verifier.md", name: "verifier", gate: "G4", fresh: true },
   { file: "agents/roles/reviewer.md", name: "reviewer", gate: "G5", fresh: true },
@@ -215,8 +216,8 @@ const DOCS = [
   },
   {
     file: "docs/process/11-CONVERSATION-MODE.md",
-    keywords: ["对话", "业务方", "自然语言", "不需要打开 GitHub", "交付报告", "后台", "升级"],
-    gate: "对话式交付",
+    keywords: ["对话", "业务方", "自然语言", "不需要打开 GitHub", "交付报告", "后台", "升级", "Go / No-Go", "Direction", "workflow-designer", "UNCOLLECTED", "反例"],
+    gate: "对话式交付 + 最小人类参与",
   },
 ];
 
@@ -253,6 +254,20 @@ check("process:conversation-mode", () => {
   const intake = readRequired("docs/process/01-REQUIREMENT-INTAKE.md");
   mustInclude(intake, ["对话录入", "11-CONVERSATION-MODE.md"], "01 对话录入映射");
   return "11 对话式文档 + 00/01 交叉引用齐全";
+});
+
+check("process:decision-only", () => {
+  const mode = readRequired("docs/process/11-CONVERSATION-MODE.md");
+  mustInclude(
+    mode,
+    ["Go / No-Go", "Direction", "workflow-designer", "先跑红", "UNCOLLECTED", "反例", "质量保证", "人类决策点"],
+    "11 最小人类参与",
+  );
+  const designer = readRequired("agents/roles/workflow-designer.md");
+  mustInclude(designer, ["PLAN.md", "切片", "验收命令", "禁止"], "workflow-designer 角色");
+  const model = readRequired("docs/process/00-OPERATING-MODEL.md");
+  mustInclude(model, ["workflow-designer", "最小人类参与"], "00 最小人类参与原则");
+  return "最小人类参与（决策式）+ workflow-designer 已写入 00/11 与角色文件";
 });
 
 check("cli:contract", () => {

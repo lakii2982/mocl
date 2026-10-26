@@ -1,6 +1,6 @@
 # agents/ — 角色 prompt 索引
 
-> 本目录是**流程 OS 的角色层**：8 个角色的完整提示词，供本地 orchestrator 通过 runner（默认 `dsh headless`）加载执行。
+> 本目录是**流程 OS 的角色层**：9 个角色的完整提示词，供本地 orchestrator 通过 runner（默认 `dsh headless`）加载执行。
 > 流程契约在 `docs/process/`；本目录只放「角色怎么行动」，不放具体 issue 内容、不放凭据、不放个人路径。
 > 自检：`node agents/verify-agents.mjs`（exit 0 表示角色六段齐全、流程文档齐全、G0–G7 与 CLI 契约一致）。
 
@@ -11,6 +11,7 @@
 | `roles/product-owner.md` | G0 | 否 | issue 分类标签、受理/退回评论 |
 | `roles/pm.md` | G1 | 否 | `.agentspec/issues/<n>/BRIEF.md`、验收口径、`agent:ready` |
 | `roles/architect.md` | G2 | 否 | `docs/rfc/NNNN-*.md`、`docs/adr/NNNN-*.md` |
+| `roles/workflow-designer.md` | G1.5 | 否 | `.agentspec/issues/<n>/PLAN.md`（切片/验收命令/写域/反例/决策点） |
 | `roles/implementer.md` | G3 | 否 | worktree 改动、commit、PR |
 | `roles/verifier.md` | G4 | **是** | `.agentspec/runs/<iso>/verify/`、PR 验证评论 |
 | `roles/reviewer.md` | G5 | **是** | PR review（approve / request-changes） |

@@ -32,11 +32,12 @@
 ## 3. 角色 RACI
 
 R = Responsible（执行），A = Accountable（最终负责），C = Consulted（必须征询），I = Informed（知会）。
-`orchestrator` 与 `用户` 是外部参与者，不与 8 个 agent 角色混同。
+`orchestrator` 与 `用户` 是外部参与者，不与 9 个 agent 角色混同。
 
 | 角色 \ Gate | G0 | G1 | G2 | G3 | G4 | G5 | G6 | G7 |
 |---|---|---|---|---|---|---|---|---|
 | product-owner | **R/A** | C | C | I | I | I | I | I |
+| workflow-designer | I | **R** | **R** | C | C | C | I | I |
 | pm | C | **R/A** | C | I | I | I | C | C |
 | architect | I | C | **R/A** | C | C | C | I | I |
 | implementer | I | C | C | **R/A** | C | I | I | I |
@@ -102,6 +103,8 @@ R = Responsible（执行），A = Accountable（最终负责），C = Consulted�
 
 **默认入口是对话式**（`11-CONVERSATION-MODE.md`）：业务方只在 DSH 对话里说自然语言，
 建 issue、看 PR、合并、发版全部由 DSH 代办；业务方**不需要打开 GitHub**。
+**最小人类参与原则**：人类只拍板「做不做 / 往哪个方向做 / 验收通过与否」（每个需求 ≤2 次）；
+其余技术决策、工作流设计、质量保证由 AI 自驱动并自证（workflow-designer → 独立 verifier/reviewer → CI → 发布后验证）。
 开发者/贡献者可选 issue 式（下表），两种模式共用同一后台 G0–G7。
 
 ### 5.0 两种入口

@@ -188,16 +188,23 @@ user ──issue (requirement form)──► GitHub
   [`docs/process/11-CONVERSATION-MODE.md`](docs/process/11-CONVERSATION-MODE.md):
   describe the requirement in chat; DSH does the issue, the branch, the gates,
   the independent review, the merge, the release, and reports back in plain
-  language. No GitHub or command-line knowledge required.
+  language. No GitHub or command-line knowledge required. The design goal is
+  **minimal human involvement**: the human only decides go/no-go and direction;
+  the AI designs the task-specific workflow (`agents/roles/workflow-designer.md`
+  → plan with slices and executable acceptance commands), executes it, and
+  assures quality through independent verification, adversarial review, CI and
+  the release scenario suite.
 - **Process OS** — [`docs/process/00-OPERATING-MODEL.md`](docs/process/00-OPERATING-MODEL.md)
   defines gates G0–G7, the RACI matrix, the label state machine and the human
   escalation matrix. The other eleven documents cover requirement intake,
   RFC/ADR, implementation, verification, review & merge, release, delivery
   reports, metrics, escalation and the local runtime.
-- **Roles** — [`agents/roles/`](agents/roles/) holds eight six-section prompts
-  (product-owner, pm, architect, implementer, verifier, reviewer,
-  release-manager, scribe) that the runner loads **verbatim** before each
-  execution.
+- **Roles** — [`agents/roles/`](agents/roles/) holds nine six-section prompts
+  (product-owner, pm, architect, workflow-designer, implementer, verifier,
+  reviewer, release-manager, scribe) that the runner loads **verbatim** before
+  each execution. `workflow-designer` is what makes self-driving work: it turns
+  a requirement into a task-specific plan (slices, executable acceptance
+  commands, write scopes, counter-examples, human decision points).
 - **Engine** — [`orchestrator/`](orchestrator/) is a zero-dependency Node CLI
   (`intake | deliver | verify | watch | status`). It creates an isolated git
   worktree per issue, runs the role prompt through `dsh headless`, executes the
