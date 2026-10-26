@@ -35,7 +35,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: 检出代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: 校验 GitHub 工程配置（零依赖，先于安装依赖）
         run: node .github/scripts/verify-github-config.mjs
@@ -90,7 +90,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: 检出代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: 安装 pnpm（固定版本，与 pnpm-lock.yaml 一致）
         uses: pnpm/action-setup@v4
@@ -122,7 +122,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: 检出代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: 文档结构闸门（硬门禁）
         shell: bash

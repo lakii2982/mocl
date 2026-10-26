@@ -36,7 +36,7 @@ jobs:
       # 否则 PR 作者可以改 .github/scripts/check-pr.mjs 来绕过自己的门禁；
       # 规则文件（.github/**）的修改必须由人在 G5 评审（docs/process/00-OPERATING-MODEL.md §自我修改保护）。
       - name: 检出 base 分支（门禁脚本以 base 版本为准）
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.base.sha }}
           persist-credentials: false
