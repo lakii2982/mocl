@@ -8,6 +8,8 @@ coverage/
 var/
 e2e/tmp/
 e2e/out/
+scenarios/tmp/
+scenarios/out/
 .DS_Store
 
 # local configuration (never commit real credentials)

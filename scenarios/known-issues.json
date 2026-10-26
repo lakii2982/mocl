@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "updatedAt": "2026-10-26",
+  "policy": "条目必须是可复现的产品缺口，且由场景显式检测：observed=true 记为已知缺口（默认不阻塞，--strict-known 阻塞）；observed=false 判场景失败，强制删除已修复的条目。禁止用它掩盖偶发失败或环境问题。",
+  "issues": [
+    {
+      "id": "KI-01",
+      "title": "opencode 无法走真实装配路径（门面创建即抛 TypeError）",
+      "severity": "blocker",
+      "owner": "C7 / opencode 适配器装配",
+      "evidence": "MoclFacade.create({backends:{opencode:{enabled:true}}}) → TypeError: OpenCodeAdapter(http) requires options.http（src/facade/adapters.ts 未构造 OpenCodeHttpClient / AcpClient）",
+      "recheck": "修好 src/facade/adapters.ts 的 opencode 分支后，S12 会把 KI-01 判为未复现，届时删除本条并把断言改回硬检查",
+      "since": "0.1.0"
+    },
+    {
+      "id": "KI-02",
+      "title": "宿主重启后 facade.resume() 不回填运行时，send 仍 session.not-found",
+      "severity": "major",
+      "owner": "L2 Broker / 冷恢复",
+      "evidence": "新门面 resume(childId) 返回 strategy=resume，但 status 仍为 lost，send 抛 session.not-found（Broker.resume 只探测远端，未重建 #sessions 与槽位）",
+      "recheck": "Broker.resume 成功分支补运行时重建与槽位获取；S05 的 KI-02 观察值会变成 false",
+      "since": "0.1.0"
+    },
+    {
+      "id": "KI-03",
+      "title": "DSH 工具面只有 subagent_agent / mocl_status，缺 send/resume/interrupt/close",
+      "severity": "major",
+      "owner": "C8 插件 / 工具面",
+      "evidence": "apply(ctx) 只注册两个工具；人类无法从 DSH 追问第二轮、叫停或关闭子代理，只能用门面 API（S03/S04 记录）",
+      "recheck": "新增工具并在 S03/S04 改为调用工具后，KI-03 会判未复现",
+      "since": "0.1.0"
+    },
+    {
+      "id": "KI-04",
+      "title": "mocl_status 不暴露后端能力位（F6 要求统一入口列出 backend × capability）",
+      "severity": "minor",
+      "owner": "C8 插件 / 状态投影",
+      "evidence": "mocl_status 返回 StatusOutcome，字段中没有 capabilities；能力位只存在于适配器内部（C8 后续切片）",
+      "recheck": "StatusOutcome 增加 capabilities 后删除本条，并在 S08 改为硬断言",
+      "since": "0.1.0"
+    },
+    {
+      "id": "KI-05",
+      "title": "per-backend env 无法配置（自由键被 deepMerge 判为 unknown key）",
+      "severity": "major",
+      "owner": "C8 配置校验 / 凭据注入",
+      "evidence": "validateConfig({backends:{codex:{env:{FOO:'x'}}}}) → ConfigError: config.backends.codex.env.FOO: unknown key；真实后端因此无法通过配置注入 API key",
+      "recheck": "deepMerge 对 env 叶子改为自由键合并；S09 的 KI-05 观察值会变成 false",
+      "since": "0.1.0"
+    },
+    {
+      "id": "KI-06",
+      "title": "facade.send() 返回值沿用上一轮终态（#terminal 未在 send 时清空）",
+      "severity": "minor",
+      "owner": "L4 门面 / 状态投影",
+      "evidence": "第一轮 completed 后 send 第二轮，SendOutcome.state 立即返回 completed 而非 running；轮询方若只看 state 会在新轮次开始前误判完成",
+      "recheck": "send 时清除 #terminal（或按 turnId 设 running）；S03 的 KI-06 观察值会变成 false",
+      "since": "0.1.0"
+    }
+  ]
+}
