@@ -5,10 +5,15 @@
 #   - GitHub Actions 固定每周检查（action 大版本升级仍要人工评审，不自动合并）；
 #   - 不配置 auto-merge：升级必须经 CI + 人工评审（G5），因为 lockfile 变化会影响可复现构建（BRIEF A2）。
 #   - 标签只用 labels.yml 中已存在的名字，避免 Dependabot 因标签不存在而报错。
+#   - 大版本（semver-major）不自动开 PR：跨大版本升级必须先走 RFC/迁移说明，
+#     由人决定时机（G2/G5）；补丁与次版本照常自动提 PR。
 version: 2
 updates:
   - package-ecosystem: "npm"
     directory: "/"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     schedule:
       interval: "weekly"
       day: "monday"
@@ -33,6 +38,9 @@ updates:
 
   - package-ecosystem: "github-actions"
     directory: "/"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     schedule:
       interval: "weekly"
       day: "monday"
