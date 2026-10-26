@@ -1,7 +1,7 @@
 # 01 — 配置 schema 与启用 / 停用 / 回滚
 
-> **写域**：`docs/integration/*`（D6）。本文给出路线 A（旁路插件，见 `00-dsh-integration.md`）的完整配置契约：全局段 + 四后端段 + 工具段、默认值/取值范围/危险级别/失败影响、与 BRIEF §6 硬约束的对应、可直接照做的启用步骤、停用与回滚（含残留清理）。
-> **真源**：seam 事实见 `.astra/CONTEXT-DSH-SEAM.md`；ABI 上限字段见 `docs/abi/abi-v0.md` §11.2；每后端能力/通道见 `docs/adapters/*`；容量默认值见 `docs/architecture/01-layers.md` §6.5。当前 DSH `0.2.1-rc.3`。
+> **写域**：`docs/integration/*`（D6）。本文给出路线 A（旁路插件，见 `00-dsh-integration.md`）的完整配置契约：全局段 + 四后端段 + 工具段、默认值/取值范围/危险级别/失败影响、与 需求基线 §6 硬约束的对应、可直接照做的启用步骤、停用与回滚（含残留清理）。
+> **真源**：seam 事实见 `docs/integration/00-dsh-integration.md`；ABI 上限字段见 `docs/abi/abi-v0.md` §11.2；每后端能力/通道见 `docs/adapters/*`；容量默认值见 `docs/architecture/01-layers.md` §6.5。当前 DSH `0.2.1-rc.3`。
 > **验证**：`python3 tools/check_docs.py integration`；配置组合校验配方见 §5.3（本机已实证）。
 
 ---
@@ -41,7 +41,7 @@ DSH 启动
 | `- insert: [ {id, name, config}, … ]` | 追加新 Loader 行 | `name` 是包 specifier；本地开发可用 `file:`/link 安装（本机已有 `@local/agent-team-model-picker` link 先例） |
 | `- id: <已有行>, config: {...}` | **整段替换**该行 config | 必须重述该行原有全部字段；漏写即回默认（例：覆盖 `subagent` 时 `maxActiveSubagents` 必须一起写） |
 | `- id: <已有行>, disabled: true` | 停用该行 | 目标 id 不存在时向 stderr 打警告 `patch: entry "<id>" not found` 并**继续**（进程 rc 仍为 0，本机实证）——所以「disable 是否命中」不能看退出码，必须看警告/运行态 |
-| `- id: <已有行>, name: <另一个包>` | 用另一个实现替换该行（B2 路线会用） | 本文路线 A 不用；B2 违反 BRIEF §5 非目标 |
+| `- id: <已有行>, name: <另一个包>` | 用另一个实现替换该行（B2 路线会用） | 本文路线 A 不用；B2 违反 需求基线 §5 非目标 |
 
 ### 1.3 配置优先级
 
@@ -69,7 +69,7 @@ DSH 启动
 | G10 | `allowModelOverride` | bool | `false` | true/false | 中 | `true` 允许工具参数传 `model`（绕过配置的模型路由；成本/一致性风险）；`false` 时模型只认 per-backend `model` |
 | G11 | `progress.mode` | enum | `summary` | `off`/`summary`/`events` | 中 | `events` 试图把更多中间事件投影到父级/UI（仍需过 G13–G15 硬上限）；`off` 只保留终态与本地 journal |
 | G12 | `progress.samplingWindowMs` | int | `5000` | 1000–60000 | 中 | 过小 → 父级/UI 增量变密（逼近上下文爆炸）；过大 → 进度迟钝 |
-| G13 | `progress.maxItemsPerTurn` | int | `8` | **1–8（硬上限）** | 高 | 超过 8 直接配置非法 → 拒绝启动（BRIEF §6-3 的机器强制）；不是「建议值」 |
+| G13 | `progress.maxItemsPerTurn` | int | `8` | **1–8（硬上限）** | 高 | 超过 8 直接配置非法 → 拒绝启动（需求基线 §6-3 的机器强制）；不是「建议值」 |
 | G14 | `progress.maxCharsPerTurn` | int | `1200` | **200–1200（硬上限）** | 高 | 同上；ABI §11.2 冻结值 |
 | G15 | `progress.maxCharsPerItem` | int | `400` | **80–400（硬上限）** | 高 | 单条超限 → 截断 + `truncated:true`；配置超上限 → 拒绝启动 |
 | G16 | `progress.includeReasoning` | bool | `false` | true/false | 中 | `true` 把思考内容计入父级/UI 预算（默认关闭；开启仍需计入同一 1200 字符额度） |
@@ -126,7 +126,7 @@ DSH 启动
 
 > 说明：上表 B01–B23 共 **23 个叶子键**；把 `progress.*`（4 个叶子）与 `env.*`（2 个叶子）按分组归并后，每个后端为 **19 个顶层键**。四后端各 19 → 76，加全局 19，再加后端专属键 4（`processIsolation`/`sdkPath`/`serverPasswordEnv`/`fallbackModel`）→ **顶层键 99 个（叶子键 125 个）**。
 >
-> **三个同名 `maxDepth` 不要混**：① 工具行 `maxDepth: provider-managed`（seam 契约，只能 `provider-managed`）；② 本文 per-backend `backends.<b>.maxDepth`（兼容层嵌套深度，默认 2，映射 ABI `limits.maxNestingDepth`，即 BRIEF 要求的「嵌套深度上限」）；③ Host 设置 `subagent.maxDepth`（seam 本地 spawn/fork 委派深度，默认 1，见 §4.5）。
+> **三个同名 `maxDepth` 不要混**：① 工具行 `maxDepth: provider-managed`（seam 契约，只能 `provider-managed`）；② 本文 per-backend `backends.<b>.maxDepth`（兼容层嵌套深度，默认 2，映射 ABI `limits.maxNestingDepth`，即 需求基线 要求的「嵌套深度上限」）；③ Host 设置 `subagent.maxDepth`（seam 本地 spawn/fork 委派深度，默认 1，见 §4.5）。
 >
 > **`timeoutMs` 键的拆分**：任务/契约所说的单一 `timeoutMs` 在本文拆成三项——`turnTimeoutMs`（单轮，默认 30 min，等价于 ABI `limits.maxTurnMs`）、`requestTimeoutMs`（单请求，默认 30 s）、`idleTimeoutMs`（空闲探测，默认 180 s）。三者都在全局与 per-backend 两级可配。
 
@@ -137,7 +137,7 @@ DSH 启动
 | `providerName` | `codex` | `kimi` | `claude-code` | `opencode` |
 | `protocol` | `app-server-jsonrpc`（`docs/adapters/codex.md` §2.1） | `acp-stdio`（`docs/adapters/kimi.md` §0.2，CLI `stream-json` 为备） | `agent-sdk`（`docs/adapters/claude-code.md` §2.1，CLI stream-json 为备） | `http-api`（**D-007 裁定：v2 HTTP 优先 + ACP 兜底**，`docs/adapters/opencode.md` §0.2） |
 | `channel` | `native` | `native` | `native` | `http-api`（备 `acp`） |
-| `binaryPath`（D-015 基线） | **生产基线 = 0.164.0**（`PATH` 的 `codex`，如 `~/.nvm/versions/node/v24.18.1/bin/codex`）；bundle 0.153.4 为**待升级旧载荷**（升级与「两处 `--version` 一致」验收见 `HANDOFF.md` C11 前置）；跨版本 schema 差异：0.153.4=99/81，0.164.0=106/85 | `~/.kimi-code/bin/kimi` = 2.3.1 | **适配器基线 = SDK 0.3.263 + SDK 内置 CLI 2.1.263**（`~/.dsh/profiles/desktop/node_modules/@anthropic-ai/claude-agent-sdk`；默认不配 `claudeCodeExecutable`）；宿主 `~/.nvm/versions/node/v24.18.1/bin/claude` = 2.1.310 属**另一条升级线**，默认不使用 | `~/.opencode/bin/opencode` = 2.1.4 |
+| `binaryPath`（D-015 基线） | **生产基线 = 0.164.0**（`PATH` 的 `codex`，如 `~/.nvm/versions/node/v24.18.1/bin/codex`）；bundle 0.153.4 为**待升级旧载荷**（升级与「两处 `--version` 一致」验收见 `docs/runbook.md` §2）；跨版本 schema 差异：0.153.4=99/81，0.164.0=106/85 | `~/.kimi-code/bin/kimi` = 2.3.1 | **适配器基线 = SDK 0.3.263 + SDK 内置 CLI 2.1.263**（`~/.dsh/profiles/desktop/node_modules/@anthropic-ai/claude-agent-sdk`；默认不配 `claudeCodeExecutable`）；宿主 `~/.nvm/versions/node/v24.18.1/bin/claude` = 2.1.310 属**另一条升级线**，默认不使用 | `~/.opencode/bin/opencode` = 2.1.4 |
 | 额外键 | — | `processIsolation: per-task`（必须；`killpg` 中断，D-008） | `sdkPath`（必填，绝对路径）；`claudeCodeExecutable` 仅外部 CLI 线（2.1.310）才配 | `serverPasswordEnv: OPENCODE_SERVER_PASSWORD`（只写键名，不写值；`serve` 会把 password 打到 stdout，禁止收集其 stdout，`docs/adapters/opencode.md` §10.1）；`fallbackModel`（默认 `opencode/deepseek-v4.1-flash-free`，D-019） |
 | `enabled` 默认 | `false` | `false` | `false` | **`true`（D-018）** |
 | `model` 默认 | `null` | `null` | `null` | **`opencode-go/deepseek-v4.1-flash`（生产基线，D-019）；key 失效降级 `opencode/deepseek-v4.1-flash-free`** |
@@ -148,9 +148,9 @@ DSH 启动
 | 危险档前置条件 | `danger-full-access` 必须 worktree + `allowDangerousModes` | `yolo` 必须 worktree + `allowDangerousModes`（命名错位，按语义映射） | `bypassPermissions` 类档必须 worktree + 显式开启 | `--auto`/build 全放行必须 worktree + 显式开启 |
 | 无 OS 沙箱事实 | 有 `SandboxMode`（`docs/adapters/codex.md` §7.3） | **无**（§7.4） | 仅工具级收窄（§7.3） | **无**，默认全放行（§7.4） |
 
-### 3.3 与 BRIEF §6 硬约束的对应（逐条可核查）
+### 3.3 与 需求基线 §6 硬约束的对应（逐条可核查）
 
-| BRIEF §6 | 约束原文要点 | 落地键/机制 | 机器强制方式 |
+| 需求基线 §6 | 约束原文要点 | 落地键/机制 | 机器强制方式 |
 |---|---|---|---|
 | §6-1 版本基线 | 四后端版本必须实测后写入 | `binaryPath` 钉死 + `protocol` + 握手断言（适配器 `versionPinning` 位）+ `mocl_status.backendVersion` | 版本断言失败 → `protocol.version-mismatch` fail fast，不混跑 |
 | §6-2 无人值守 | 不能依赖人工审批，交互必须可自动拒/自动答 | `permissionMode` 默认 `read-only`；`allowDangerousModes:false`；各适配器 fail-closed 反向请求应答（ABI §10 SEC-3） | 任何反向请求无 handler → deny；`policy.escalation-required` 上报，不挂起 |
@@ -187,7 +187,7 @@ DSH 启动
 
 | 项 | 值 | 证据/原因 | 漏配的失败形态 |
 |---|---|---|---|
-| 工具 `maxDepth` | `provider-managed` | `NO_START_CAPABILITIES.depthLimit=false`（`.astra/CONTEXT-DSH-SEAM.md` §2） | 全部委派被 seam 在启动前拒绝（`UNSUPPORTED_CAPABILITY`） |
+| 工具 `maxDepth` | `provider-managed` | `NO_START_CAPABILITIES.depthLimit=false`（`docs/integration/00-dsh-integration.md` §1） | 全部委派被 seam 在启动前拒绝（`UNSUPPORTED_CAPABILITY`） |
 | 委派 `delivery` | `parent` | 外部条目只在 `delivery:'parent'` 时写入 catalog（`dsh-subagent/README.zh.md` Activation 结算） | UI 无任何条目，父级无完成通知 |
 | 旧工具行 | 停用 `tool-subagent-codex` / `tool-subagent-claude-code` 与两个 provider 行 | R25；避免同名 provider/工具双注册 | 加载失败或行为不确定（同名遮蔽） |
 
@@ -227,13 +227,13 @@ permissionMode ∈ {safe-auto, yolo}
 ### 5.0 前置检查（零副作用）
 
 ```bash
-cd /Users/lakii2982/项目/多智能体编排
+cd "$(git rev-parse --show-toplevel)"
 
 # 1) DSH 版本
 dsh --version                                   # 期望 0.2.1-rc.3
 
 # 2) 四后端二进制/版本（与 docs/research/* 一致）
-codex --version                                  # 0.164.0（D-015 生产基线；两处 --version 不一致先走 HANDOFF C11 前置）
+codex --version                                  # 0.164.0（D-015 生产基线；两处 --version 不一致先走 docs/runbook.md §2）
 ~/.dsh/profiles/desktop/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version   # 升级后应为 0.164.0（bundle 旧载荷=待升级）
 ~/.kimi-code/bin/kimi --version                 # 2.3.1
 claude --version                                # 2.1.310 (Claude Code) = 宿主线（另一条升级线；适配器基线用 SDK 内置 CLI 2.1.263）

@@ -1,113 +1,292 @@
-# mocl — MOCL 兼容层（施工仓）
+# MOCL
 
-> 上游是**设计包**（`../docs`、`../.astra`、`../HANDOFF.md`），施工期**只读**。
-> 本仓从施工切片 **C0（骨架）+ C1（ABI 类型与 schema 落地）** 开始；ABI 的语义真源是
-> [`../docs/abi/abi-v0.md`](../docs/abi/abi-v0.md)，JSON Schema 真源是
-> [`../docs/abi/schema/`](../docs/abi/schema/)（46 错误码 / 34 能力位 / 35 事件 / 18 方法）。
+> A multi-agent orchestration compatibility layer for **DeepSeek Harness (DSH)**.
+> MOCL unifies **codex**, **claude-code**, **kimi** and **opencode** behind one
+> ABI and exposes them as orchestration-capable subagents — without modifying
+> DSH itself.
 
-## 环境
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Node.js >= 24](https://img.shields.io/badge/node-%3E%3D24-brightgreen)](package.json)
 
-- Node.js **>= 24**（`tools/validate-abi.mjs` 直接用 Node 内置 TS type-stripping 读取
-  `src/abi/*.ts`，因此不需要先编译）
-- pnpm 11（`packageManager` 由全局 pnpm 提供；本仓无 `packageManager` 锁定）
+MOCL is pre-1.0 (`0.1.0`). This repository is the **single source of truth** for
+the MOCL implementation and its design documents.
 
-## 命令
+---
 
-```bash
-cd impl
-pnpm install                 # 安装 devDependencies（5 个：typescript/vitest/@types/node/ajv/ajv-formats）
+## 1. What MOCL does
 
-pnpm -s sync:schema          # 设计包 docs/abi/schema → impl/schema（逐字节；差异会打印摘要）
-pnpm -s sync:schema -- --check   # 只检查不写：与设计包不一致时 exit 1（CI 用）
+The four backends each speak a different protocol and expose different
+capabilities. MOCL sits between DSH and the backends and does four things:
 
-pnpm -s typecheck            # tsc -p tsconfig.json --noEmit（strict + noUncheckedIndexedAccess）
-pnpm -s test                 # vitest run（C1：6 个文件 / 47 个测试）
-pnpm -s test -- --run        # 验收命令形式（等价，见 VERIFY.md）
-node tools/validate-abi.mjs  # ABI 门禁：5 schema 编译 + 46/34/35/18 + fixtures
-```
+1. **Unified sessions** — every backend session becomes addressable, resumable,
+   interruptible and observable through one logical session model.
+2. **Unified event stream** — four native event vocabularies are normalized into
+   one bounded, foldable, replayable stream (with hard limits on what reaches
+   the parent conversation).
+3. **Unified failures** — four native error shapes become one error taxonomy
+   with fixed degradation paths.
+4. **One ABI** — adding a backend means adding one adapter; the broker, event
+   bus, facade and DSH plugin do not change.
 
-**schema 同步规则**：`docs/abi/schema/*.json` 是唯一真源；`impl/schema/` 是**逐字节副本**
-（随仓库提交，供运行时校验与门禁使用）。**不要手改 `impl/schema/`**——改了会在下次
-`sync:schema` 被覆盖；设计变更走设计包的 ABI §13 MINOR 流程，然后 `pnpm -s sync:schema`。
+Non-goals: GUI visual design, forking or modifying DSH internals, backend
+product features, and cross-backend session migration.
 
-## 目录
+The ABI contract is counted and machine-checked by `tools/validate-abi.mjs`:
+**46** error codes, **34** capability bits, **35** event types, **18** methods
+(9 of them schema-frozen).
+
+## 2. Backend support
+
+| Backend | Transport (primary) | Baseline version | Status on the development machine |
+|---|---|---|---|
+| **codex** | `app-server` JSON-RPC (stdio) | codex-cli **0.164.0** | Offline path verified; live turn is environment-limited (`app-server` returned `turn.failed` after ~47 s) |
+| **claude-code** | Claude Agent SDK (adapter baseline SDK **0.3.263**, bundled CLI 2.1.263) | Agent SDK 0.3.263 | Live smoke **passes** |
+| **kimi** | ACP over stdio | kimi-code **2.3.1** | Read-only probes pass; live smoke consumes reserved quota (opt-in) |
+| **opencode** | v2 HTTP API (ACP as alternate channel) | opencode **2.1.4** | Free model pool verified end-to-end (`rc=0`, session continuation works); the paid key is expired (`401 api_key_expired`) |
+
+The full 4 × 15 capability matrix (with per-cell evidence and repro commands)
+lives in [`docs/research/capability-matrix.md`](docs/research/capability-matrix.md).
+Capability statuses are measured, not assumed: an adapter that cannot verify a
+native handshake reports the capability as missing instead of pretending it
+works.
+
+## 3. Architecture
+
+MOCL is a side-car layer: DSH keeps its own subagent seam, and MOCL is composed
+into it as a plugin. Session truth belongs to MOCL's broker, not to the DSH seam,
+because the seam treats external backends as one-shot executions.
 
 ```text
-impl/
-├── package.json / tsconfig.json / pnpm-workspace.yaml / .gitignore
-├── README.md / VERIFY.md
-├── schema/                     # ← 从 ../docs/abi/schema 同步；勿手改（5 个 schema）
-│   ├── session.json  event.json  error.json  capabilities.json  request.json
-├── src/abi/
-│   ├── index.ts                # 公共入口（barrel）
-│   ├── methods.ts              # 18 个 ABI 方法元数据（M1–M18；schema 冻结 M1–M9）
-│   ├── errors.ts               # 46 错误码 + 12 分类 + retryable 映射（ABI §8.2）
-│   ├── capabilities.ts         # 34 能力位（A 组 15 / B 组 19）+ missing/degraded 工具
-│   ├── events.ts               # 35 事件类型 + 事件家族 + 终态事件
-│   ├── types.ts                # 手写 wire 类型：Session/Event/Error/Capabilities/Request
-│   └── validate.ts             # AJV 2020-12 运行时校验（编译缓存）
-├── tools/
-│   ├── sync-schema.mjs         # schema 同步（幂等 / --check / diff 摘要）
-│   └── validate-abi.mjs        # ABI 门禁（计数 + 集合一致 + fixtures）
-├── fixtures/                   # 9 条契约样例（5 合法 / 4 非法）+ manifest.json
-│   ├── valid/    session · event.turn-completed · error.rate-limited
-│   │             capabilities.codex · request.session-send
-│   ├── invalid/  event.unknown-type · session.bad-state
-│   │             error.missing-user-message · request.send-missing-idempotency
-│   └── manifest.json
-└── tests/abi/                  # 6 个测试文件（47 tests）
-    ├── schema.test.ts  errors.test.ts  capabilities.test.ts
-    ├── events.test.ts  requests.test.ts  fixtures.test.ts
+ parent DSH session
+        │  subagent_agent(backend = codex | claude-code | kimi | opencode)
+        ▼
+ ┌─────────────────────────────────────────────────────────────┐
+ │ facade        open / send / status / list / resume /        │
+ │               interrupt / close  →  MoclError → ABI ErrorRef│
+ ├───────────────────────────┬─────────────────────────────────┤
+ │ broker                    │ event bus                       │
+ │ session registry,         │ fold, ring buffer, limits,      │
+ │ idempotency, kill/recover │ parent delivery (≤1 / turn)     │
+ ├───────────────────────────┴─────────────────────────────────┤
+ │ ABI v0: 46 errors · 34 capability bits · 35 events · 18 methods
+ ├─────────────────────────────────────────────────────────────┤
+ │ adapters   codex │ claude-code │ kimi │ opencode             │
+ └──────────────┬────┴──────┬───────┴───┬──┴────────────────────┘
+                │           │           │
+      app-server JSON-RPC  Agent SDK    ACP / v2 HTTP
+                │           │           │
+        codex process   claude CLI   kimi process   opencode service
 ```
 
-## C0/C1 已落地内容
+Layers (see [`docs/architecture/01-layers.md`](docs/architecture/01-layers.md)):
+L0 transport → L1 adapter → L2 broker → L3 event bus → L4 parent delivery →
+L5 facade/plugin.
 
-| 项 | 状态 | 验收证据 |
-|---|---|---|
-| 仓库骨架（package/tsconfig/gitignore/README） | ✅ | `pnpm -s typecheck` |
-| schema 同步（真源 → 副本，幂等 + `--check`） | ✅ | `pnpm -s sync:schema` 输出 up-to-date |
-| 手写 ABI 类型（5 类对象 + 35 事件 discriminated union） | ✅ | `pnpm -s typecheck` |
-| 46 错误码 + retryable 映射 | ✅ | `validate-abi.mjs` + 6 tests |
-| 34 能力位 + 交集工具 | ✅ | `validate-abi.mjs` + 6 tests |
-| 18 方法注册表 | ✅ | `validate-abi.mjs` + 7 tests |
-| AJV 运行时校验（5 schema，编译缓存） | ✅ | `validate-abi.mjs` + 11 tests |
-| 契约 fixtures（合法/非法） | ✅ | `node tools/validate-abi.mjs`（9/9） |
+## 4. Quick start
 
-## 边界与纪律
-
-- 只写 `impl/`；`../docs`、`../.astra`、`../HANDOFF.md` 只读。
-- 不引入凭据；不打印 token/key（fixtures 与测试均无凭据）。
-- 发现「设计包与 schema/实现」冲突时：**停下并回报 Lead**，不自行改设计包。
-- 后续切片（C2+）的写域见 `../.astra/PLAN.md` Part B：C2 `src/broker/`、C3 `src/bus/`、
-  C4–C7 `src/adapters/`；本仓 ABI 层（`src/abi/`）对它们只读依赖。
-
-## C8：门面 + DSH 插件（`subagent_agent` / `mocl_status`）
-
-> **宿主 API 基线：DSH `0.2.1-rc.3`**（实测自 `@deepseek-ai/dsh-tools` 的
-> `ctx.tools.register(definition)` 与 `@deepseek-ai/dsh-tool-subagent` 的
-> `export { name, inject, apply }` 插件形状）。最小声明见
-> [`src/plugin/dsh-types.d.ts`](src/plugin/dsh-types.d.ts)；
-> **升级 DSH 时需复核该文件与 `ctx.tools` 注册签名、工具 JSON Schema 子集。**
-
-- 门面：`src/facade/`（`MoclFacade.create/open/send/status/list/resume/interrupt/close`；
-  统一 `MoclError → ABI ErrorRef`；配置默认最小权限，见 `config.default.json`）。
-- 插件：`src/plugin/index.ts`（薄壳；`subagent_agent(backend=codex|claude-code|kimi|opencode)`
-  + `mocl_status(childId?, cursor?)`；`maxDepth` 默认 `provider-managed`）。
-- patch 覆盖：`patch/cordis.patch.yml`（新增插件行）、`patch/disable-legacy.yml`
-  （停用旧 `subagent-codex|claude-code` 与 `tool-subagent-*`，R25）。
-- 验证：
+Requirements: **Node.js >= 24** (a `.nvmrc` is included), pnpm, and
+Python 3.9+ for the documentation gate.
 
 ```bash
-pnpm -s typecheck
-pnpm -s test -- --run
-pnpm -s assert:dsh-tool     # 静态 PASS；宿主不可用则打印 SKIP:host-unavailable 且 exit 0
+git clone https://github.com/lakii2982/mocl.git
+cd mocl
+pnpm install
+
+pnpm typecheck                    # strict TypeScript, no emit
+pnpm test                         # offline test suite (vitest)
+pnpm validate                     # ABI gate (46/34/35/18)
+node tools/sync-schema.mjs --check  # schema copy is byte-identical to docs/abi/schema
+pnpm docs:check                   # documentation structure / counts / links
+pnpm leak-scan                    # no personal paths, secrets or internal ledgers
 ```
 
-- 安全默认（fail-closed）：`global.enabled=false`、四后端 `enabled=false`、
-  `permissionMode=read-only`、`allowDangerousModes=false`、
-  `worktreeIsolation=required-for-write`、`maxConcurrent="runtime"`（D-016，禁止硬编码并发）。
-- D-020：kimi CLI 首轮前 `remoteSessionId` 为空 → 门面容忍并暴露
-  `remoteIdState: pending|bound`；D-021：kimi CLI 档位不支持按调用切换 →
-  `policy.escalation-required`（不偷偷降档）。
-- 本仓**不安装** `@mocl/dsh-plugin` 包、也**不写用户 DSH profile**；patch 仅作覆盖文件，
-  启用步骤见 `../HANDOFF.md`（用户确认后执行）。
+All six commands above are expected to exit `0`. No credentials are needed for
+the offline suite; live tests and probes are opt-in and skip themselves when the
+corresponding backend CLI is not installed.
+
+Optional end-to-end scenario (offline, uses a temporary git worktree and a fake
+backend):
+
+```bash
+node e2e/pr-scenario.mjs          # expect: RESULT: PASS (offline)
+MOCL_LIVE=1 node e2e/pr-scenario.mjs  # live variant, needs a usable backend
+```
+
+Delivery engine (offline, no GitHub token needed):
+
+```bash
+node --test orchestrator/test/                        # engine unit tests (node:test)
+node orchestrator/cli.mjs deliver --issue 1 --dry-run  # print the full plan, zero side effects
+node orchestrator/cli.mjs status --offline --json      # read-only status
+```
+
+## 5. Using MOCL from DSH
+
+MOCL is delivered as a DSH plugin that registers two tools:
+
+- `subagent_agent(backend, task, ...)` — dispatch work to one of the four
+  backends and receive a child session id;
+- `mocl_status(childId?, cursor?)` — query session state/events by cursor.
+
+The repository ships:
+
+- `config.default.json` — fail-closed defaults: every backend disabled,
+  `permissionMode: read-only`, dangerous modes disallowed, worktree isolation
+  required for writes;
+- `config.example.json` — the same shape, safe to copy as a starting point
+  (a local configuration file is git-ignored and must never be committed);
+- `patch/cordis.patch.yml` — adds the plugin row and disables the legacy
+  one-shot `subagent-codex` / `subagent-claude-code` tools.
+
+Enable/rollback steps, the full configuration reference, and the GUI data-plane
+notes are in:
+
+- [`docs/integration/01-config-and-enable.md`](docs/integration/01-config-and-enable.md)
+- [`docs/integration/00-dsh-integration.md`](docs/integration/00-dsh-integration.md)
+- [`docs/integration/02-ui-data-plane.md`](docs/integration/02-ui-data-plane.md)
+
+## 6. How work gets delivered: DSH + GitHub + local agents
+
+This repository is also a working reference implementation of an **agent-run
+software delivery process**. The maintainer writes a business requirement as a
+GitHub issue; DSH agents plus a local orchestrator carry it through design,
+implementation, independent verification, review, merge, release and a delivery
+report.
+
+```text
+user ──issue (requirement form)──► GitHub
+                                      │  labels: agent:ready
+                                      ▼
+                         orchestrator/cli.mjs watch
+                             │                       │
+                 dsh headless role agent          CI + process-guard
+                 (implementer/verifier/reviewer)  (GitHub Actions)
+                             │                       │
+                             └────────► PR ◄─────────┘
+                                          │
+                       merge (release-manager) ──► tag ──► GitHub Release
+                                          │
+                                          ▼
+                       delivery report comment on the issue
+```
+
+- **Process OS** — [`docs/process/00-OPERATING-MODEL.md`](docs/process/00-OPERATING-MODEL.md)
+  defines gates G0–G7, the RACI matrix, the label state machine and the human
+  escalation matrix. The other ten documents cover requirement intake,
+  RFC/ADR, implementation, verification, review & merge, release, delivery
+  reports, metrics, escalation and the local runtime.
+- **Roles** — [`agents/roles/`](agents/roles/) holds eight six-section prompts
+  (product-owner, pm, architect, implementer, verifier, reviewer,
+  release-manager, scribe) that the runner loads **verbatim** before each
+  execution.
+- **Engine** — [`orchestrator/`](orchestrator/) is a zero-dependency Node CLI
+  (`intake | deliver | verify | watch | status`). It creates an isolated git
+  worktree per issue, runs the role prompt through `dsh headless`, executes the
+  gates, opens the PR with an evidence table, and writes an auditable run log
+  under `.agentspec/`. `--dry-run` and a mock runner make every step testable
+  offline.
+- **Gates in CI** — [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs
+  exactly the commands a human would; [`process-guard.yml`](.github/workflows/process-guard.yml)
+  rejects PRs without a linked issue, an evidence table or a Conventional
+  Commit title.
+- **Provisioning** — [`scripts/provision-github.sh`](scripts/provision-github.sh)
+  applies labels, merge policy and branch protection so that the gates are
+  enforced by GitHub rather than by convention.
+
+The human only does three things: **write the issue, answer escalation
+questions, accept the delivery**. The single-account mode (GitHub forbids
+approving your own PR, and branch protection is unavailable on private
+repositories of free plans) is handled explicitly in
+[`docs/process/05-REVIEW-MERGE.md`](docs/process/05-REVIEW-MERGE.md) §4.
+
+## 7. Repository layout
+
+```text
+mocl/
+├── src/
+│   ├── abi/          # ABI v0 types, constants, AJV runtime validation
+│   ├── adapters/     # codex, claude-code, kimi, opencode
+│   ├── broker/       # session registry, idempotency, concurrency, kill/recover
+│   ├── bus/          # event bus, folding, ring buffer, parent delivery
+│   ├── facade/       # backend-agnostic facade (config, errors, adapters)
+│   └── plugin/       # thin DSH plugin: subagent_agent / mocl_status
+├── schema/           # byte-identical copy of docs/abi/schema/*.json
+├── fixtures/         # ABI contract fixtures (valid + invalid)
+├── tests/            # unit / contract / e2e tests (vitest)
+├── tools/            # validate-abi, sync-schema, check_docs, leak-scan, build-plugin
+├── scripts/          # codex baseline assert/upgrade, DSH tool assertions
+├── e2e/              # offline PR scenario (fake backend + worktree)
+├── repro/            # read-only, zero-quota backend probes
+├── patch/            # DSH patch files (enable plugin, disable legacy tools)
+├── config.default.json / config.example.json
+├── orchestrator/     # zero-dependency delivery engine (issue → agent → gates → PR)
+├── agents/           # role prompts loaded by the runner + process self-check
+├── docs/process/     # delivery process OS (G0–G7, roles, contracts, release)
+├── .github/          # CI, PR contract gate, issue forms, labels, CODEOWNERS
+├── vitest.config.mjs # vitest scope (the orchestrator suite runs on node:test)
+└── docs/             # ABI, architecture, adapters, integration, research, ...
+```
+
+## 8. Documentation
+
+| Document | What it covers |
+|---|---|
+| [`docs/index.md`](docs/index.md) | One-page entry point and reading paths |
+| [`docs/abi/abi-v0.md`](docs/abi/abi-v0.md) | ABI v0: capability bits, methods, events, errors, idempotency, limits |
+| [`docs/architecture/00-overview.md`](docs/architecture/00-overview.md) | Layering, decision DEC-1, deployment shapes |
+| [`docs/architecture/01-layers.md`](docs/architecture/01-layers.md) | L0–L5 contracts, invariants, degradation |
+| [`docs/architecture/02-state-machine.md`](docs/architecture/02-state-machine.md) | Session states, transitions, idempotency, cold recovery |
+| [`docs/architecture/03-failure-modes.md`](docs/architecture/03-failure-modes.md) | Failure taxonomy, retries, degradation ladder |
+| [`docs/adapters/`](docs/adapters/) | Per-backend L1 mappings (handshake, events, permissions, acceptance) |
+| [`docs/research/capability-matrix.md`](docs/research/capability-matrix.md) | 4 × 15 capability matrix with evidence |
+| [`docs/integration/`](docs/integration/) | DSH integration route, configuration, UI data plane |
+| [`docs/risk/00-risk-register.md`](docs/risk/00-risk-register.md) | Risk register |
+| [`docs/risk/01-threat-model.md`](docs/risk/01-threat-model.md) | Threat model (credentials, path traversal, sandbox, prompt injection, supply chain) |
+| [`docs/test/01-acceptance.md`](docs/test/01-acceptance.md) | Acceptance matrix and commands |
+| [`docs/process/`](docs/process/) | Delivery process OS: gates G0–G7, roles, issue/PR contracts, release, metrics |
+| [`agents/README.md`](agents/README.md) | Role prompts loaded by the orchestrator, and the process self-check |
+| [`orchestrator/README.md`](orchestrator/README.md) | Delivery engine CLI, exit codes, safety rails, troubleshooting |
+| [`docs/runbook.md`](docs/runbook.md) | Operations runbook (codex baseline, plugin bootstrap, e2e) |
+
+The documentation set is gate-checked by `tools/check_docs.py` (structure,
+required sections, ABI counts, error-code vocabulary, resolvable relative
+links). Design documents are Chinese; the README is bilingual.
+
+## 9. Project status and known limitations
+
+Verified in this repository (commands and exit codes are reproducible):
+
+- ABI contract gate: 46 / 34 / 35 / 18 — `node tools/validate-abi.mjs`
+- Schema copy gate: `node tools/sync-schema.mjs --check`
+- Offline end-to-end scenario: `node e2e/pr-scenario.mjs` → `RESULT: PASS (offline)`
+
+Known limitations (see [`CHANGELOG.md`](CHANGELOG.md)):
+
+- `codex` live turns are environment-limited on the development machine; the
+  live e2e run is recorded as `skipped:host-unavailable`.
+- `kimi` live smoke consumes reserved quota; default probes are zero-quota and
+  read-only.
+- `opencode` paid-model credentials are expired; the adapter falls back to the
+  free model pool (verified). A new key must be created in the OpenCode Console.
+- The DSH host API baseline is **0.2.1-rc.3**; DSH upgrades require re-checking
+  `src/plugin/dsh-types.d.ts` and the tool registration signature.
+- The official DSH GUI shows external subagents as non-openable leaf rows; use
+  `mocl_status` and the session journal for state/progress.
+- No npm release; install by cloning this repository.
+
+## 10. Contributing
+
+Contributions are welcome. Please read
+[`CONTRIBUTING.md`](CONTRIBUTING.md) and the
+[`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md). Before opening a pull request run
+the gates listed in section 4 (`typecheck`, `test`, `validate`, `sync-schema
+--check`, `docs:check`, `leak-scan`) plus the engine and process gates:
+`node --test orchestrator/test/`, `node agents/verify-agents.mjs` and
+`node .github/scripts/verify-github-config.mjs`.
+
+For security issues, do **not** open a public issue — see
+[`SECURITY.md`](SECURITY.md).
+
+## 11. License
+
+[MIT](LICENSE) © 2026 lakii2982

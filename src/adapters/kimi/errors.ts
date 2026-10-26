@@ -37,11 +37,23 @@ export function isUnknownSessionId(error: JsonRpcErrorShape): boolean {
   return /unknown\s+sessionid/i.test(error.message);
 }
 
-/** `-32603` 是否表示模式状态冲突（实测 `{"details":"Already in plan mode"}`，kimi.md:236）。 */
-export function isModeConflict(error: JsonRpcErrorShape): boolean {
-  if (error.code !== -32603) return false;
+/**
+ * `-32603` 点名的档位（实测 `{"details":"Already in plan mode"}`，kimi.md:236；
+ * 2026-10-26 复测：message 是泛化 "Internal error"，点名只出现在 data.details 里）。
+ *
+ * "Already in <mode> mode" 只在请求档位 = 当前档位时出现（plan→auto/default 均成功），
+ * 因此点名档位 == 请求档位 → 幂等成功；点名其他档位才是真冲突。
+ */
+export function conflictingModeName(error: JsonRpcErrorShape): string | null {
+  if (error.code !== -32603) return null;
   const text = `${error.message} ${safeStringify(error.data)}`;
-  return /already\s+in\s+.*mode/i.test(text);
+  const match = /already\s+in\s+([a-z][a-z-]*)\s+mode/i.exec(text);
+  return match === null ? null : match[1]!.toLowerCase();
+}
+
+/** `-32603` 是否表示模式状态冲突（`conflictingModeName` 非空即冲突）。 */
+export function isModeConflict(error: JsonRpcErrorShape): boolean {
+  return conflictingModeName(error) !== null;
 }
 
 function safeStringify(value: unknown): string {
@@ -74,10 +86,16 @@ export function mapJsonRpcError(
   }
   if (isModeConflict(error)) {
     // §10.2：状态冲突 → session.conflict；幂等语义由调用方处理（不重试同一个 set_mode）。
+    // 点名档位写进 hint（`already-in-mode:<name>`）供调用方判定"已在目标档 = 幂等成功"。
+    const named = conflictingModeName(error);
     return moclError("session.conflict", {
       message: `kimi mode state conflict${methodSuffix}`,
       backendCode,
-      details: { kind: "session.conflict", backendCode },
+      details: {
+        kind: "session.conflict",
+        backendCode,
+        ...(named === null ? {} : { hint: `already-in-mode:${named}` }),
+      },
     });
   }
   switch (error.code) {

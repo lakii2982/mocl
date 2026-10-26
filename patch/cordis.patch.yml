@@ -1,6 +1,6 @@
 # MOCL 兼容层 —— DSH profile patch（路线 A：旁路插件）
-# 用法（不要直接写用户 profile；由 HANDOFF §3.0 的启用步骤执行）：
-#   dsh --profile headless --patch "$PWD/impl/patch/cordis.patch.yml" --dump-config
+# 用法（不要直接写用户 profile；启用步骤见 docs/integration/01-config-and-enable.md）：
+#   dsh --profile headless --patch "$PWD/patch/cordis.patch.yml" --dump-config
 # 基线：DSH 0.2.1-rc.3（host API 升级需复核 src/plugin/dsh-types.d.ts）
 #
 # 只新增：

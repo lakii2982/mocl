@@ -11,7 +11,7 @@
 | 钉死的 SDK | `~/.dsh/profiles/desktop/node_modules/@anthropic-ai/claude-agent-sdk/` → **`0.3.263`**（入口 `sdk.mjs`） |
 | 钉死的 CLI | **SDK 内置 CLI `2.1.263`**（平台包 `@anthropic-ai/claude-agent-sdk-darwin-arm64@0.3.263` 的 `manifest.json.version`；默认**不传** `pathToClaudeCodeExecutable`）。宿主 nvm 全局 `claude` = `2.1.310` 属**另一条升级线**，默认不使用 |
 | 禁止 | 直接拼 CLI 参数、交互 TUI 模式、`persistSession:false` |
-| 上游契约 | `docs/abi/abi-v0.md`、`docs/research/claude-code.md`（下称 `R`）、`docs/research/capability-matrix.md`（下称 `M`）、`.astra/CONTEXT-DSH-SEAM.md`（下称 `C`） |
+| 上游契约 | `docs/abi/abi-v0.md`、`docs/research/claude-code.md`（下称 `R`）、`docs/research/capability-matrix.md`（下称 `M`）、`docs/integration/00-dsh-integration.md`（下称 `C`） |
 | 状态 | **C5 实测回填版**（基线 CLI 2.1.263 / stream 握手时序 / sandbox=emulated / 禁 `allowedTools` 已按真实链路修订；`[未验证]` 项保留标注） |
 
 **证据标记**：`[实测]` = 本机可复跑（`bash repro/probe-claude.sh`）；`[实测-本轮]` = 本次规格编写时的只读探测（命令见 §12.3、输出见附录 A）；`[文档]` = typings/`--help` 原文；`[推断]` = 前两者推导、未直接执行。
@@ -59,7 +59,7 @@ V1/V2 是"我们启动了什么"，V3 是"对端实际是什么"，V4 是**运�
 
 ### 1.3 与 DSH 现有插件的差别（为什么现在"一次性"）
 
-现有插件（`@deepseek-ai/dsh-subagent-claude-code@0.2.1-rc.3`）把能力关在选项里（`R:140-180`、`C:49`）：
+现有插件（`@deepseek-ai/dsh-subagent-claude-code@0.2.1-rc.3`）把能力关在选项里（`R:140-180`、seam 事实基线（`docs/integration/00-dsh-integration.md` §1））：
 
 | 插件选择 | 后果 | 本文要求 |
 |---|---|---|
@@ -588,7 +588,7 @@ console.log('persisted cwd', info?.cwd, '| summary', String(info?.summary).slice
 | 未认证 | `apiKeySource==='none'` → `auth.missing-credential`（fail fast，无人值守不尝试交互登录） | `[推断]`，C5 补 |
 | 认证失败 | `SDKAssistantMessageError.authentication_failed` / `oauth_org_not_allowed` → `auth.credential-rejected` | `sdk.d.ts:3384` |
 | 账户态 | `account_on_hold`/`billing_error` → `quota.usage-exhausted` | 同上 |
-| 交互登录 | `claude auth` 子命令（`R:43`）→ 不调用；只提示用户先登录 | BRIEF 硬约束 2 |
+| 交互登录 | `claude auth` 子命令（`R:43`）→ 不调用；只提示用户先登录 | 需求基线 硬约束 2 |
 | 凭据保护 | 适配器**不读** `~/.claude` 凭据文件、不打印 env；`diagnostic.log` 命中凭据模式即脱敏（ABI SEC-1） | 纪律同 `R:5` |
 
 ### 8.2 模型路由
@@ -651,7 +651,7 @@ console.log('persisted cwd', info?.cwd, '| summary', String(info?.summary).slice
 | `error_during_execution` | `turn.failed{backend.internal-error}`，若同轮有 `assistant.error` 则按 B 表优先映射 | `errors[]` 原文进 `details`（脱敏） |
 | `error_max_turns` | `turn.completed{stopReason:"max-turns"}` + `session.warning` | ABI 把 max-turns 列为完成态（§7.2）；决策见 §5.3 |
 | `error_max_budget_usd` | `turn.failed{limit.budget-exceeded}` | 预算耗尽 |
-| `error_max_structured_output_retries` | `turn.failed{protocol.invalid-params}` | 本项目不用 structured output（`outputSchema` 属 DSK seam 关闭项，`C:36`）→ 仅兜底 |
+| `error_max_structured_output_retries` | `turn.failed{protocol.invalid-params}` | 本项目不用 structured output（`outputSchema` 属 DSK seam 关闭项，seam 事实基线（`docs/integration/00-dsh-integration.md` §1））→ 仅兜底 |
 
 **B. `assistant.error`（`SDKAssistantMessageError`，`sdk.d.ts:3384`，11 值）**
 
@@ -755,7 +755,7 @@ console.log('persisted cwd', info?.cwd, '| summary', String(info?.summary).slice
 ### 12.1 上游证据复跑（只读、零额度、幂等）
 
 ```bash
-cd /Users/lakii2982/项目/多智能体编排
+cd "$(git rev-parse --show-toplevel)"
 bash repro/probe-claude.sh        # 退出码 0 = 探测完成
 # 期望看到：
 #  [1] 宿主 CLI 2.1.310（另一条线）/ SDK 0.3.263；适配器基线 = SDK 内置 CLI 2.1.263（§1.1）
@@ -776,7 +776,7 @@ python3 tools/check_docs.py adapters; echo "rc=$?"
 ### 12.3 零额度 smoke（`[实测-本轮]` 已通过；只读会话文件、零额度、不写 `~/.claude`）
 
 ```bash
-cd /Users/lakii2982/项目/多智能体编排
+cd "$(git rev-parse --show-toplevel)"
 node --input-type=module - <<'JS'
 import os from 'node:os';
 const SDK = process.env.CLAUDE_SDK_PATH
@@ -836,7 +836,7 @@ C5 init.claude_code_version → 2.1.263                      # 真实一轮握�
 exports_ok: query,listSessions,getSessionInfo,getSessionMessages,forkSession,listSubagents,getSubagentMessages,deleteSession
 missing: none
 listSessions({limit:3}) → 3 行；行键 sessionId,summary,lastModified,fileSize,customTitle,firstPrompt,gitBranch,cwd,tag,createdAt
-getSessionInfo(sid)     → 同键；示例 cwd = /Users/lakii2982/项目/多智能体编排
+getSessionInfo(sid)     → 同键；示例 cwd = $(git rev-parse --show-toplevel)
 ```
 
 **A-3 transcript 形状（`getSessionMessages`，映射表 #10 的直接依据）**
@@ -902,7 +902,7 @@ addDirs                  → --add-dir <path>
 ## 附录 B — 交叉引用与遗留
 
 - ABI：`docs/abi/abi-v0.md` §2.2/§2.3、§3.2/§3.5、§4（反向请求与超时义务）、§5.2、§6.1/§6.2（M2/M3/M4/M5/M8/M13/M15）、§7、§8.2、§9、§10、§11。
-- 上游事实：`docs/research/claude-code.md`（R）、`docs/research/capability-matrix.md`（M）、`.astra/CONTEXT-DSH-SEAM.md`（C）。
+- 上游事实：`docs/research/claude-code.md`（R）、`docs/research/capability-matrix.md`（M）、`docs/integration/00-dsh-integration.md`（C）。
 - 交给 C5 的未决：V-CC-1（SendMessage/ListAgents 入参）、V-CC-2（resume+fork 往返）、V-CC-4（并发键）、V-CC-5（updatedPermissions）、V-CC-6（auto 分类器）、R-CC-1（resume 跨 cwd）、U5/U6/U11。
 - 交给 D4 的缺口：`event.json` 缺 §5.6 列举的变体；ABI v0 缺 `backend.internal-error`（G7）。
 - 交给 D7（威胁模型）：transcript 落盘（`~/.claude/projects`）含 prompt 与产物摘要，属敏感数据面。

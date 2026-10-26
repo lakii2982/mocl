@@ -259,13 +259,13 @@ export function validateConfig(input: unknown = {}): FacadeConfig {
   return merged;
 }
 
-/** 默认配置文件的绝对路径（相对 `impl/` 根）。 */
+/** 默认配置文件的绝对路径（相对仓库根）。 */
 export function defaultConfigPath(): string {
   const here = dirname(fileURLToPath(import.meta.url));
   return resolve(here, "../../config.default.json");
 }
 
-/** 读取并校验配置文件；`path` 省略时读 `MOCL_CONFIG` 或 `impl/config.default.json`。 */
+/** 读取并校验配置文件；`path` 省略时读 `MOCL_CONFIG` 或 `config.default.json`（仓库根）。 */
 export async function loadFacadeConfig(path?: string, overrides?: unknown): Promise<FacadeConfig> {
   const target = path ?? process.env.MOCL_CONFIG ?? defaultConfigPath();
   let text: string;

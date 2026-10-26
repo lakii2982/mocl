@@ -1,7 +1,7 @@
 # 00 — DSH 接入方案：旁路插件 vs seam 改造（DEC-2 / DEC-3）
 
 > **写域**：本文件与 `01-config-and-enable.md`、`02-ui-data-plane.md`（D6）。本文回答「兼容层怎么接进 DSH、两条路线怎么选、推荐哪条、什么时候改走另一条、怎么迁移」。
-> **上游真源**：seam 硬事实以 `.astra/CONTEXT-DSH-SEAM.md` 与 DSH 0.2.1-rc.3 安装物为准（本文每条都标证据位置）；ABI/架构/适配器分别以 `docs/abi/abi-v0.md`、`docs/architecture/*`、`docs/adapters/*` 为准，本文只引用不重定义。
+> **上游真源**：seam 硬事实以 DSH 0.2.1-rc.3 安装物为准（本文每条都标证据位置）；ABI/架构/适配器分别以 `docs/abi/abi-v0.md`、`docs/architecture/*`、`docs/adapters/*` 为准，本文只引用不重定义。
 > **验证命令**（在本仓库根执行）：`python3 tools/check_docs.py integration`；本机 DSH 组合校验配方见 §9。
 
 ---
@@ -10,33 +10,33 @@
 
 | 决策 | 结论 | 一句话理由 |
 |---|---|---|
-| **DEC-2 路线** | **推荐路线 A（A1 形态：旁路插件 + seam 公开 provider 扩展点；不改 seam 源码/契约）**，一期落地；路线 B（扩展 seam 让外部后端 continuable）作为二期立项候选 | A 的改动面全部在「新增 profile 插件 + 配置」，DSH 升级只影响 provider 契约的薄适配层；B 要改 seam 契约 + catalog + 控制工具 + 官方 UI 四件套，且 DSH 以 asar 分发，本地改核心与 BRIEF §5「不 fork 官方包」直接冲突 |
-| **DEC-3 进度载体** | **一期：终态完成通知（seam 原生，1 条）+ `mocl_status` 查询工具 + 落盘文件（journal/progress/report）**；不向父会话写中间进度消息 | 走 seam 的外部子级没有「工具返回值增量」通道（工具立即返回 `started subagent <childId>`），而往父会话追加中间消息会直接触犯 BRIEF §6-3 与 KV cache 约束；查询 + 文件是唯一零上下文成本的载体 |
+| **DEC-2 路线** | **推荐路线 A（A1 形态：旁路插件 + seam 公开 provider 扩展点；不改 seam 源码/契约）**，一期落地；路线 B（扩展 seam 让外部后端 continuable）作为二期立项候选 | A 的改动面全部在「新增 profile 插件 + 配置」，DSH 升级只影响 provider 契约的薄适配层；B 要改 seam 契约 + catalog + 控制工具 + 官方 UI 四件套，且 DSH 以 asar 分发，本地改核心与 需求基线 §5「不 fork 官方包」直接冲突 |
+| **DEC-3 进度载体** | **一期：终态完成通知（seam 原生，1 条）+ `mocl_status` 查询工具 + 落盘文件（journal/progress/report）**；不向父会话写中间进度消息 | 走 seam 的外部子级没有「工具返回值增量」通道（工具立即返回 `started subagent <childId>`），而往父会话追加中间消息会直接触犯 需求基线 §6-3 与 KV cache 约束；查询 + 文件是唯一零上下文成本的载体 |
 | **立项顺序** | A0（provider 契约 spike，1–2 人日）→ A1（Bridge MVP：Broker 投影 + 4 provider + 配置，3–5 人日）→ A2（统一工具 + 控制工具，2–3 人日）→ A3（自有 UI，6–10 人日，可与 A2 并行）→ **B0 并行工作流 W1（RFC/issue 草案 + 接口预留 + 原型，不阻塞 A0–A3；D-017）** | A0/A1 是任何路线都要的（L4 投影 + ABI 会话真相），先做不浪费；B 的前置是上游契约变更，本地无法验证 |
 | **回滚** | 配置级回滚：删/停用 patch 行 + `dsh plugin --profile desktop remove`，目标 ≤5 分钟，无数据迁移 | A 不碰 DSH 核心文件，回滚 = 恢复 patch 备份 + 重启；journal 是追加数据，保留不影响旧路径 |
-| **codex 基线** | **生产基线 = 最新版 0.164.0（D-015）**；bundle 0.153.4 是待升级旧载荷，升级路径与验收（两处 `--version` 一致）见 `HANDOFF.md` C11 前置 | 旧 bundle 与 host 协议差（0.153.4：99/81；0.164.0：106/85），不升级会长期双版本维护 |
+| **codex 基线** | **生产基线 = 最新版 0.164.0（D-015）**；bundle 0.153.4 是待升级旧载荷，升级路径与验收（两处 `--version` 一致）见 `docs/runbook.md` §2 | 旧 bundle 与 host 协议差（0.153.4：99/81；0.164.0：106/85），不升级会长期双版本维护 |
 | **后端交付完整性** | **四后端链路全部可用（D-018/D-019）**：opencode 生产模型 `opencode-go/deepseek-v4.1-flash` 需用户**新建 key**（旧 key 已过期且重登录不续期）；key 失效时降级免费模型 `opencode/deepseek-v4.1-flash-free`（已实测 rc=0 + `-s` 续接），发 `degraded` 事件并声明 `model=free-fallback`，不静默 | opencode 不再是交付缺口；唯一剩余是一次性人工动作（新建 key） |
 
-**本方案不做什么**：不修改 DSH 安装目录/asar 内任何文件；不 fork `@deepseek-ai/dsh-*` 官方包；不写实现代码；不改 `docs/architecture/*`、`docs/abi/*`、`docs/adapters/*` 的结论。若本文与它们冲突，以 `.astra/LEDGER.md` 的裁定为准（D-007 opencode 走 v2 HTTP 优先；D-015 codex 基线 0.164.0；D-016 并发取运行时；D-017 B0 并行；D-018/D-019 opencode 链路可用 + 生产/free 模型分级，本文全部遵守）。
+**本方案不做什么**：不修改 DSH 安装目录/asar 内任何文件；不 fork `@deepseek-ai/dsh-*` 官方包；不写实现代码；不改 `docs/architecture/*`、`docs/abi/*`、`docs/adapters/*` 的结论。若本文与它们冲突，以 决策记录的裁定为准（D-007 opencode 走 v2 HTTP 优先；D-015 codex 基线 0.164.0；D-016 并发取运行时；D-017 B0 并行；D-018/D-019 opencode 链路可用 + 生产/free 模型分级，本文全部遵守）。
 
 ---
 
 ## 1. seam 硬事实基线（方案不得与之矛盾）
 
-> 以下每一条都来自本机 0.2.1-rc.3 安装物或 Lead 已核验的 `.astra/CONTEXT-DSH-SEAM.md`；`…/dsh-subagent/…` 路径均在 asar 内，读取方法见 CONTEXT §1。
+> 以下每一条都来自本机 0.2.1-rc.3 安装物（asar 内 `…/dsh-subagent/…` 路径）或包内 README 原文。
 
 | # | 事实（原文/证据） | 对方案的硬约束 | 路线 A 如何绕过 | 路线 B 如何解除 |
 |---|---|---|---|---|
-| S1 | **两类子级**：本地（spawn/fork，持久会话、可续接、可冷恢复）与**外部**（ACP/DSH SDK/Codex/Claude Code，**执行一次、拒绝后续输入**）。证据：`@deepseek-ai/dsh-subagent/README.zh.md`「本地与外部子级」「已知限制」；`.astra/CONTEXT-DSH-SEAM.md` §2 | 不能把「续接/多轮/冷恢复」寄托在 seam 的外部条目上 | 会话真相（id 映射、状态机、journal、冷恢复、续接）**全部由兼容层 Broker 自管**；seam 只被当作「一次执行 + 完成通知」的投递通道（L4 投影），每次交互走 Broker 自己的控制工具（§4.3） | 扩展 provider 契约，让外部 provider 也实现可继续执行（persistent remote session id + 逐子级 continuation 能力声明，即 seam dev-note 明列的延期项） |
-| S2 | 外部后端能力位写死 **`NO_START_CAPABILITIES = { agentOptions:false, agentPreset:false, outputSchema:false, depthLimit:false }`**。源码注释原文：*"A child in another process cannot honor parent-enforced start features … the service rejects a request needing any of them before `start` runs — never accepted-then-ignored."* 证据：`.astra/CONTEXT-DSH-SEAM.md` §2；`…/dsh-subagent/lib/index.js`（常量定义处） | 经 seam 请求外部后端时**不能**携带 `agentOptions`（模型/推理档）、`agentPreset`、`outputSchema`、数值 `maxDepth`；否则请求在 `start` 前被拒绝（`UNSUPPORTED_CAPABILITY`），不是「接受后忽略」 | 模型/权限/深度/输出 schema **不进 seam 请求**，改由兼容层的配置与自有工具参数承载，在 Broker `session.create/send` 参数里执行（ABI M2/M3 已有 `model`/`permissionProfile`/`limits` 字段）；工具行必须配 `maxDepth: provider-managed`（数值会触发拒绝，见 §4.4） | 让外部 provider 能声明并真正执行这四项（跨进程透传 + 父级侧校验），seam 才可恢复数值 maxDepth 与 agentOptions 语义 |
-| S3 | `send_message` / `interrupt_agent` / **冷恢复**只对本地 `mode: continuable` 生效；`send_message` 要求「确切在线 sender」；`list_agents` **主动省略外部条目**。证据：`…/dsh-tool-subagent-control/README.zh.md`（`send_message`/`interrupt_agent`/`list_agents` 三节）；`.astra/CONTEXT-DSH-SEAM.md` §2 | 不能承诺「用 DSH 的 `send_message` 继续外部后端会话」；UI 的输入框对一次性子级只读、Stop 只对运行中可继续子级可用 | 兼容层提供自己的控制工具（`mocl_status` / `mocl_interrupt` / `mocl_recover`），内部走 Broker + ABI M5/M8；`interrupt_agent` 对外部只作为「永久停止」的语义使用（seam 原文如此），结果由 Broker 映射为 `turn.aborted{interruptMethod:"process-kill"}` / `aborted` | seam 为外部子级增加持久邮箱/租约与 `prepareContinuable()`（dev-note 两条延期项），`list_agents` 纳入外部、控制工具可路由；UI 输入框/Stop 按本地同级放行 |
+| S1 | **两类子级**：本地（spawn/fork，持久会话、可续接、可冷恢复）与**外部**（ACP/DSH SDK/Codex/Claude Code，**执行一次、拒绝后续输入**）。证据：`@deepseek-ai/dsh-subagent/README.zh.md`「本地与外部子级」「已知限制」；本表（本机安装物核验） | 不能把「续接/多轮/冷恢复」寄托在 seam 的外部条目上 | 会话真相（id 映射、状态机、journal、冷恢复、续接）**全部由兼容层 Broker 自管**；seam 只被当作「一次执行 + 完成通知」的投递通道（L4 投影），每次交互走 Broker 自己的控制工具（§4.3） | 扩展 provider 契约，让外部 provider 也实现可继续执行（persistent remote session id + 逐子级 continuation 能力声明，即 seam dev-note 明列的延期项） |
+| S2 | 外部后端能力位写死 **`NO_START_CAPABILITIES = { agentOptions:false, agentPreset:false, outputSchema:false, depthLimit:false }`**。源码注释原文：*"A child in another process cannot honor parent-enforced start features … the service rejects a request needing any of them before `start` runs — never accepted-then-ignored."* 证据：本表（本机安装物核验）；`…/dsh-subagent/lib/index.js`（常量定义处） | 经 seam 请求外部后端时**不能**携带 `agentOptions`（模型/推理档）、`agentPreset`、`outputSchema`、数值 `maxDepth`；否则请求在 `start` 前被拒绝（`UNSUPPORTED_CAPABILITY`），不是「接受后忽略」 | 模型/权限/深度/输出 schema **不进 seam 请求**，改由兼容层的配置与自有工具参数承载，在 Broker `session.create/send` 参数里执行（ABI M2/M3 已有 `model`/`permissionProfile`/`limits` 字段）；工具行必须配 `maxDepth: provider-managed`（数值会触发拒绝，见 §4.4） | 让外部 provider 能声明并真正执行这四项（跨进程透传 + 父级侧校验），seam 才可恢复数值 maxDepth 与 agentOptions 语义 |
+| S3 | `send_message` / `interrupt_agent` / **冷恢复**只对本地 `mode: continuable` 生效；`send_message` 要求「确切在线 sender」；`list_agents` **主动省略外部条目**。证据：`…/dsh-tool-subagent-control/README.zh.md`（`send_message`/`interrupt_agent`/`list_agents` 三节）；本表（本机安装物核验） | 不能承诺「用 DSH 的 `send_message` 继续外部后端会话」；UI 的输入框对一次性子级只读、Stop 只对运行中可继续子级可用 | 兼容层提供自己的控制工具（`mocl_status` / `mocl_interrupt` / `mocl_recover`），内部走 Broker + ABI M5/M8；`interrupt_agent` 对外部只作为「永久停止」的语义使用（seam 原文如此），结果由 Broker 映射为 `turn.aborted{interruptMethod:"process-kill"}` / `aborted` | seam 为外部子级增加持久邮箱/租约与 `prepareContinuable()`（dev-note 两条延期项），`list_agents` 纳入外部、控制工具可路由；UI 输入框/Stop 按本地同级放行 |
 | S4 | `maxDepth: 'provider-managed'` = **不向进程外后端发送上限**；数值深度要求 provider 具备 `depthLimit` 能力。证据：`…/dsh-tool-subagent/README.zh.md`（`maxDepth` 字段与「达到上限」两节）；S2 | 外部后端的委派工具必须 `maxDepth: provider-managed`；「深度上限」只能由兼容层自己执行 | 兼容层在 `session.create` 前校验 `parentSessionId` 链深度（配置 `maxDepth`，默认 2，依据 codex 原生 `[agents] max_depth=2`，见 `docs/adapters/codex.md` §9.1 / `docs/architecture/00-overview.md` AR-V4），超限拒绝并返回 `limit.nesting-exceeded`；seam 侧不校验（也不显示深度提示） | provider 声明 `depthLimit:true` 后，seam 可接收数值 `maxDepth` 并在启动前执行父级上限，深度提示/拒绝统一由 seam 表达 |
 | S5 | `subagent/catalog` **对外部条目只记叶子**：外部创建仅在使用 `delivery:'parent'` 时追加目录事实，`mode:'external'`（catalog payload v2），「目录仅在创建时记录一次成员关系，**不携带执行状态**」；UI 侧「外部任务显示为不可打开的叶子项，不展示执行状态」。证据：`…/dsh-subagent/README.zh.md`（Activation 结算 / catalog 段）；`…/dsh-subagent/lib/types/catalog.js`（`externalCatalogSchema`）；`…/dsh-client-ui-subagent/README.zh.md`（概述 + 目录派生） | 官方 GUI 只能显示「有一个外部任务」，看不到状态/进度/用量/子代理树/错误码；不能把「UI 可见」当作验收前提 | 接受这一事实：官方 catalog 行只作「任务存在 + label」；状态/进度/用量经 `mocl_status` 工具与落盘文件提供；二期用**自有 client-ui 插件**（不改官方包）补齐面板（`02-ui-data-plane.md`） | catalog 升 v3：外部条目携带 `state/progressSummary/usage/error`，UI 按可继续/只读详情展示，官方条目不再只是叶子 |
 
 补充事实（影响配置与容量，不单独列行）：
 
 - seam 容量（R24/**D-016**）：`maxActiveSubagents` **一律运行时读取**（Host `subagent` 设置/组合配置），拒绝码 `ACTIVATION_LIMIT_REACHED`；**禁止硬编码任何默认值**（不写死 8）；本机 desktop 当前运行值为 20（仅实例值，文档不写死）；读取失败/字段缺失 → **fail-closed 拒绝启动**，不猜默认。兼容层上限必须 ≤ 该运行值（R24）。
-- codex 基线（**D-015**）：生产基线 = **0.164.0**；bundle 0.153.4 是待升级旧载荷，升级步骤与验收（两处 `--version` 一致）在 `HANDOFF.md`「C11 前置」。
+- codex 基线（**D-015**）：生产基线 = **0.164.0**；bundle 0.153.4 是待升级旧载荷，升级步骤与验收（两处 `--version` 一致）在 `docs/runbook.md` §2。
 - 委派深度 Host 设置默认 **1**（`- id: subagent` 的 `maxDepth` 字段默认值；本机 patch 未覆盖它）。走 `provider-managed` 的工具不受它约束（S4）。
 - 插件组合顺序：bundle 层 → profile 层 `cordis.patch.yml` → `--patch` 覆盖层（`~/.dsh/profiles/desktop/cordis.yml` 注释与 `dsh --dump-config-schema` 的 `$comment` 原文）；本机 `desktop` profile 由 Electron 独占管理，`dsh --profile desktop --dump-config` 会被拒绝（§9.2）。
 - 工具 schema 成本：`dsh-tool-subagent` **每个实例**贡献一个工具 schema + 一段系统提示词 section；`dsh-tool-subagent-control` 的 `send_message`/`interrupt_agent`/`list_agents` 也各为一个固定 schema（README「Token 影响」节）。这直接决定 §5 的工具形态选择。
@@ -55,7 +55,7 @@
 ### 2.2 路线 B —— 扩展 seam 让外部后端 continuable
 
 - **B1（首选形态）**：向上游提交契约扩展（PR）：外部 provider 可声明 `agentOptions/agentPreset/outputSchema/depthLimit`、可提供 `prepareContinuable()`、catalog 携带执行状态、`send_message/interrupt/list_agents` 覆盖外部、UI 支持外部继续执行。
-- **B2（备选形态）**：profile patch 用本地维护的 fork 包**覆盖** `- id: subagent` / `- id: tool-subagent-control` 等行的 `name`。技术上可行（loader 支持按 id 覆盖 name+config），但**违反 BRIEF §5「不 fork 官方包」**，需要用户显式签字，且每次 DSH 升级要 rebase。
+- **B2（备选形态）**：profile patch 用本地维护的 fork 包**覆盖** `- id: subagent` / `- id: tool-subagent-control` 等行的 `name`。技术上可行（loader 支持按 id 覆盖 name+config），但**违反 需求基线 §5「不 fork 官方包」**，需要用户显式签字，且每次 DSH 升级要 rebase。
 - 路线 B 完全不改 L1 适配器与 ABI（这是 B 的主要优点：适配器规格保持有效）。
 
 ### 2.3 路线边界（防止评审时口径漂移）
@@ -79,7 +79,7 @@
 |---|---|---|---|
 | **改动面** | 新增 2–3 个 profile 插件包（Bridge / 统一工具 / 控制工具）+ 1 段 patch YAML（+ 二期 1 个 client-ui 包）。不改任何官方包 | seam 核心（provider 契约、`NO_START_CAPABILITIES`、catalog、manager 续接路径）+ `dsh-tool-subagent-control` + `dsh-client-ui-subagent` + 可能的 session projection/UI 契约；5 个官方包、跨进程邮箱/租约协议 | A 明显小；B 是跨包协议改造 |
 | **升级耦合**（DSH 每次发版要跟着改什么） | ① provider 注册/`startActivation` 签名；② 工具注册 API；③ catalog payload 版本（读取器现支持 v0/v1/v2，新版本需跟随）；④ `maxActiveSubagents`/`maxDepth` 设置语义；⑤ profile patch schema（`dsh --dump-config-schema` 可回归）。预计 **0.5–2 人日/版本**（有 smoke 后趋近 0.5） | 除①–⑤外：⑥ 把 seam 改动 rebase 到新 `lib/index.js`/types；⑦ catalog/UI 契约与官方 UI 一起改；⑧ 若未合并，每次发版都要重放 fork 补丁，**2–5 人日/版本**，且回归面覆盖 6 类 seam 行为（发送/中断/列举/冷恢复/catalog/UI 输入框） | A 可维护；B 长期维护成本取决于上游是否合并 |
-| **风险** | ① 双真相/映射漂移（R07）；② UI 鸿沟（外部条目无状态，用户可能误以为「卡住」）；③ 工具/ provider 双注册冲突（R25）；④ 与 seam 容量双闸门不一致（R24）；⑤ 升级破坏 provider 契约（低-中） | ① 改核心 → 升级即冲突，且 asar 不可改（B2 需 fork，与 BRIEF §5 冲突）；② 跨进程继续执行 = 持久邮箱 + 租约，是分布式一致性问题（seam dev-note 明示延期）；③ UI/控制/catalog 三处行为回归面大；④ 上游不接收 → 永久 fork；⑤ 验证成本高（需真实多客户端/重启场景） | A 风险可控且有兜底；B 风险高且不可回滚 |
+| **风险** | ① 双真相/映射漂移（R07）；② UI 鸿沟（外部条目无状态，用户可能误以为「卡住」）；③ 工具/ provider 双注册冲突（R25）；④ 与 seam 容量双闸门不一致（R24）；⑤ 升级破坏 provider 契约（低-中） | ① 改核心 → 升级即冲突，且 asar 不可改（B2 需 fork，与 需求基线 §5 冲突）；② 跨进程继续执行 = 持久邮箱 + 租约，是分布式一致性问题（seam dev-note 明示延期）；③ UI/控制/catalog 三处行为回归面大；④ 上游不接收 → 永久 fork；⑤ 验证成本高（需真实多客户端/重启场景） | A 风险可控且有兜底；B 风险高且不可回滚 |
 | **可维护性** | 官方契约不变，兼容层内部演进自由；缺陷边界清晰（L4/Broker）；测试可 mock provider | 每个 DSH 版本都可能改 seam 内部结构；文档与实现易脱节；需要长期跟踪上游 dev-note | A |
 | **UI 一致性** | 官方 UI：外部任务=不可打开叶子、无执行状态（S5）→ 与本地子代理**不一致**；需自有 UI 插件补齐（二期），仍无法改变官方叶子行为 | 与本地子代理同级：状态/进度/用量/子代理树/输入框/Stop 全部一致 | B 胜；但这正是 B 的主要成本 |
 | **工作量（人日，估算）** | A0 1–2 + A1 3–5 + A2 2–3 + A3（UI）6–10 = **12–20**（不含 C4–C7 四适配器，约 20–30 人日，两路线相同） | B0 提案/原型 5–8 + B1 核心 8–14 + B1 UI/控制 5–8 + 邮箱/租约 4–6 + 迁移/回归 3–5 = **25–41**（若上游合并可省 fork/回归约 8–13） | A 约一半 |
@@ -106,7 +106,7 @@
 | 反方 | 回应 |
 |---|---|
 | 「A 是假旁路，还是在用 seam 的 provider 注册」 | 是**有意**的：provider 注册是 seam 公开、稳定的扩展点，用它换来完成通知/容量/目录叶子，比 A2 全自建更贴近 DSH 生命周期；而「会话真相」仍在兼容层，所以 seam 的能力限制（S1–S4）绕过了，而不是被违反。若评审要求「一字不碰 seam」，退到 A2 即可，代价是 UI 与完成通知都要自建。 |
-| 「A 只做一次性，等于放弃 BRIEF 的续接目标」 | 不成立：续接由 Broker 自管（ABI M4/M8），只是不走 seam 的 continuation 面、不走 DSH 输入框。验收方式见 §9.3（同一 `sess_id` 二次 send + kill 后 recover）。 |
+| 「A 只做一次性，等于放弃 需求基线 的续接目标」 | 不成立：续接由 Broker 自管（ABI M4/M8），只是不走 seam 的 continuation 面、不走 DSH 输入框。验收方式见 §9.3（同一 `sess_id` 二次 send + kill 后 recover）。 |
 | 「B 才是正解，A 是技术债」 | 若产品验收把「DSH 原生 UI 一致 + 原生 `send_message` 续接」列为硬指标，B 确实更优。本文不否定 B，只主张**顺序**：先用 A 拿到可交付、可回滚的能力，同时用 B0 原型与上游对齐；A 的 Broker/ABI 资产在 B 下完全不浪费（§7）。 |
 | 「A 的 UI 鸿沟不可接受」 | 取决于用途：单次委派看结果（PR 评审、批量修复）可接受；小时级长任务/需要中途干预的场景不可接受 → 这正是 §6.4 的 B 触发条件。 |
 
@@ -206,9 +206,9 @@ DSH Host（desktop profile）
 
 **推荐一个统一工具 `subagent_agent(backend=...)`**，理由按权重：
 
-1. **BRIEF §8 的假设就是「DSH 侧一个统一入口 + 四个后端可选」**；四工具与用户预期相反。
-2. **token 成本**：四工具是「每个父级请求」的固定成本，按 4 次估算每次省 1–2k token；长会话累计显著，且与 BRIEF §6-4 的成本约束方向一致。
-3. **schema 前缀稳定**：新增后端只改枚举描述，不改工具集合 → 父会话 KV cache 前缀稳定（BRIEF §6-3 / ABI §11.3 的同一逻辑）。
+1. **需求基线 §8 的假设就是「DSH 侧一个统一入口 + 四个后端可选」**；四工具与用户预期相反。
+2. **token 成本**：四工具是「每个父级请求」的固定成本，按 4 次估算每次省 1–2k token；长会话累计显著，且与 需求基线 §6-4 的成本约束方向一致。
+3. **schema 前缀稳定**：新增后端只改枚举描述，不改工具集合 → 父会话 KV cache 前缀稳定（需求基线 §6-3 / ABI §11.3 的同一逻辑）。
 4. **冲突面小**：只有一个工具名，R25 只需停用旧的两行工具配置；四工具还要处理「旧名复用 vs 新名并存」的二义性。
 5. **`maxDepth` 只需配一次**，减少「漏配一个实例导致该后端全部委派被 seam 拒绝」的运维事故。
 
@@ -220,7 +220,7 @@ DSH Host（desktop profile）
 
 ### 6.1 推荐
 
-**一期（现在）路线 A（A1）**：它把「可交付、可回滚、不碰核心」三点同时满足，且 A0/A1/A2 的产出（ABI Broker 投影、provider 适配、统一工具、配置/回滚）在路线 B 下**全部保留**（B 只替换投递通道与 UI）。B 的问题不是「不值得做」，而是「现在做无法本地验证、回滚代价高、且与 BRIEF 非目标冲突」。
+**一期（现在）路线 A（A1）**：它把「可交付、可回滚、不碰核心」三点同时满足，且 A0/A1/A2 的产出（ABI Broker 投影、provider 适配、统一工具、配置/回滚）在路线 B 下**全部保留**（B 只替换投递通道与 UI）。B 的问题不是「不值得做」，而是「现在做无法本地验证、回滚代价高、且与 需求基线 非目标冲突」。
 
 ### 6.2 立项顺序
 
@@ -266,7 +266,7 @@ DSH Host（desktop profile）
 | 适配器缺失败降级/写 unknown | 否（本文不改适配器；引用其 §10） | `docs/adapters/*` §10 |
 | 「再来一次就恢复」的隐含假设 | 否：恢复=写操作对账 + 幂等键（§4.3、ABI §9），明确禁止盲目重发 | 本文件 §4.2/§4.3 |
 | 未定义父会话进度上限 | 否：父会话零中间消息 + 硬上限表 | `01-config-and-enable.md` §2（G13–G15）与 §3.1（B16–B18）、`02-ui-data-plane.md` §3.3/§5 |
-| 安全默认 = 放行一切 | 否：read-only 默认 + 危险档双闸 + worktree 强制 | `01-config-and-enable.md` §3.3（BRIEF §6-5 行） |
+| 安全默认 = 放行一切 | 否：read-only 默认 + 危险档双闸 + worktree 强制 | `01-config-and-enable.md` §3.3（需求基线 §6-5 行） |
 | 施工切片无验证命令/依赖人工观察 | 否：A0–A3 均有可执行判据；运行时断言见 §9.3 | 本文件 §6.2/§9 |
 
 ---
@@ -306,7 +306,7 @@ DSH Host（desktop profile）
 ### 9.1 文档闸门
 
 ```bash
-cd /Users/lakii2982/项目/多智能体编排
+cd "$(git rev-parse --show-toplevel)"
 python3 tools/check_docs.py integration; echo "rc=$?"
 ```
 
@@ -348,15 +348,15 @@ dsh --profile desktop --dump-config 2>&1 | head -2
 
 ---
 
-## 10. 待澄清（与 D4/D5/BRIEF 的新冲突或缺口）
+## 10. 待澄清（与 D4/D5/需求基线 的新冲突或缺口）
 
 | ID | 事项 | 冲突/缺口 | 建议裁定（Lead） |
 |---|---|---|---|
-| D6-Q1 | DEC-3 的「工具返回值增量」与 seam 工具模型冲突：官方委派工具**立即返回** `started subagent <childId>`，不承载后续增量；要拿增量只能另发查询 → 与 DEC-3「一期工具增量」字面不一致 | BRIEF §7 DEC-3 vs `dsh-tool-subagent` 行为 | 采纳本文 §0：一期 = 终态通知 + `mocl_status` + 文件；DEC-3 在 LEDGER 里标注为「工具可查询增量」 |
+| D6-Q1 | DEC-3 的「工具返回值增量」与 seam 工具模型冲突：官方委派工具**立即返回** `started subagent <childId>`，不承载后续增量；要拿增量只能另发查询 → 与 DEC-3「一期工具增量」字面不一致 | 需求基线 §7 DEC-3 vs `dsh-tool-subagent` 行为 | 采纳本文 §0：一期 = 终态通知 + `mocl_status` + 文件；DEC-3 在 LEDGER 里标注为「工具可查询增量」 |
 | D6-Q2 | `docs/architecture/01-layers.md` INV-L4 的「L4 禁止按 backend 分支」与统一工具 `backend` 枚举 | 架构 §6.7 反模式 2 | 明确：`backend` → provider 的**路由表是配置数据**，不是业务 if/else；本文件已按此写，若评审不同意需改架构条款措辞 |
 | D6-Q3 | `docs/architecture/00-overview.md` AR-V3/AR-V4 委托 D6 的未决项 | 本文已决定父会话载体（§0）与嵌套默认 2（§4.2/01 §3），但未改架构文档 | 由 D10 integrator 把 AR-V3/AR-V4 标为「由 D6 §0/§4.2 回答」，不改写架构正文 |
 | D6-Q4（**已关闭，D-016**） | 并发默认值口径 | 旧稿把默认值写成固定整数、并把本机实例值当作文档默认 | 一律运行时读取，缺省 `runtime` 跟随；读取失败 fail-closed；文档不写死任何默认值 |
-| D6-Q5 | 路线 B 的 B2（本地 fork 官方包）与 BRIEF §5 非目标冲突 | 非目标 vs 可选路线 | 仅登记为「需用户书面批准才可启用」，一期不排期 |
+| D6-Q5 | 路线 B 的 B2（本地 fork 官方包）与 需求基线 §5 非目标冲突 | 非目标 vs 可选路线 | 仅登记为「需用户书面批准才可启用」，一期不排期 |
 | D6-Q6（**已关闭，D-018/D-019**） | opencode 交付完整性 | 旧结论「opencode 待凭据、默认关闭」 | opencode 默认 `enabled:true`；生产模型需新建 key（旧 key 过期且重登录不续期），key 失效自动降级免费模型并标 `degraded`；四后端链路全部可用 |
 
 ---
@@ -398,7 +398,7 @@ $ dsh --version
 
 - 配置 schema、启用步骤、开关矩阵、回滚：`docs/integration/01-config-and-enable.md`
 - UI 字段清单与降级呈现：`docs/integration/02-ui-data-plane.md`
-- seam 事实基线：`.astra/CONTEXT-DSH-SEAM.md`
+- seam 事实基线：`docs/integration/00-dsh-integration.md`
 - 架构边界与 L4 职责：`docs/architecture/01-layers.md` §L4、`docs/architecture/00-overview.md` §4/§6
 - 状态机与冷恢复：`docs/architecture/02-state-machine.md` §7/§8
 - 能力位/降级表/事件：`docs/abi/abi-v0.md` §3.5、§7、§11

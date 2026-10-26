@@ -1,7 +1,7 @@
 # 02 — UI 数据面：GUI 需要显示什么、现在能显示什么、不新增 UI 时怎么降级
 
-> **写域**：`docs/integration/*`（D6）。本文只定义**数据面**（字段、来源、上限、呈现规则），不做视觉设计（BRIEF §5 非目标）。
-> **事实基线**：DSH 0.2.1-rc.3 的 `@deepseek-ai/dsh-client-ui-subagent`（下称 UI 包）与 `@deepseek-ai/dsh-subagent`（seam）安装物；证据以包内 README 原文为准（asar 内路径见 `.astra/CONTEXT-DSH-SEAM.md` §1）。ABI 事件/字段以 `docs/abi/abi-v0.md` §7/§11 为准。
+> **写域**：`docs/integration/*`（D6）。本文只定义**数据面**（字段、来源、上限、呈现规则），不做视觉设计（需求基线 §5 非目标）。
+> **事实基线**：DSH 0.2.1-rc.3 的 `@deepseek-ai/dsh-client-ui-subagent`（下称 UI 包）与 `@deepseek-ai/dsh-subagent`（seam）安装物；证据以包内 README 原文为准（asar 内路径见 `docs/integration/00-dsh-integration.md` §1）。ABI 事件/字段以 `docs/abi/abi-v0.md` §7/§11 为准。
 > **路线前提**：路线 A（`00-dsh-integration.md`）。官方 UI 对外部子级的「叶子、只读、不显示执行状态」是 seam 的硬事实（S5），不是本文能改的；要改属于路线 B。
 
 ---
@@ -11,7 +11,7 @@
 | 问题 | 答案 |
 |---|---|
 | 官方 GUI 现在能显示外部后端的什么？ | **只有一条不可打开的叶子条目**（label/mode），**不显示执行状态/进度/用量/错误/子代理树**；父级对话里另有一条完成通知（最终回答 + 结构化结果 + 诊断）。证据：UI 包 README「概述」「目录派生」；seam README「catalog 不携带执行状态」。 |
-| 一期不新增 UI 时靠什么？ | **完成通知（终态 1 条）+ `mocl_status` 查询工具 + 落盘文件**（journal/progress/report）。父会话零中间消息，符合 BRIEF §6-3 与 KV cache 约束。 |
+| 一期不新增 UI 时靠什么？ | **完成通知（终态 1 条）+ `mocl_status` 查询工具 + 落盘文件**（journal/progress/report）。父会话零中间消息，符合 需求基线 §6-3 与 KV cache 约束。 |
 | 二期 UI 需要新增的最小集合 | **5 项**：① 状态徽标 ② 可折叠进度 ③ 用量行 ④ 结构化错误块 ⑤ 外部原生子代理树（只读）。 |
 | 新增 UI 的最小改动面 | 新增自己的 client-ui 插件 `@mocl/dsh-client-ui-mocl`（读 Bridge 服务），**不 fork/不改** `dsh-client-ui-subagent`；官方叶子条目仍保持叶子（除非走路线 B）。 |
 | 数据上限（硬） | 进度：**≤8 条/轮、≤1200 字符/轮、≤400 字符/条、折叠窗口 1–60s（默认 5s）**；终态永不折叠。与 `01-config-and-enable.md` G12–G15 同一组硬上限。 |

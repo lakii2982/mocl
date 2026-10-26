@@ -5,7 +5,7 @@
  * - **只有 `subtype:"success" && is_error:false && result 非空` 才发 `turn.completed`**；
  *   其余 result（含 `error_max_turns`）一律 `turn.failed`，错误码按 §10.1 映射；
  * - 无法映射的消息 → 丢弃 + 计数 + 节流 `session.warning{code:"adapter.event-dropped"}`；
- * - 终态之后不再发该轮事件（EV-4）；payload 对齐 `impl/schema/event.json`。
+ * - 终态之后不再发该轮事件（EV-4）；payload 对齐 `schema/event.json`。
  */
 import { createHash } from "node:crypto";
 import type { AdapterEvent } from "../../abi/adapter.ts";

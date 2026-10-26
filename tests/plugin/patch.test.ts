@@ -43,7 +43,7 @@ describe("patch 覆盖文件（C8）", () => {
     expect(parsed.every((row) => row.disabled === true)).toBe(true);
   });
 
-  it("patch 目录位于 impl/patch 且只含两份覆盖文件", () => {
+  it("patch 目录位于仓库根 patch/ 且只含两份覆盖文件", () => {
     expect(PATCH_DIR).toBe(join(IMPL_ROOT, "patch"));
     const report = assertStaticPatchFiles();
     expect(report.bytes.cordis).toBeGreaterThan(0);

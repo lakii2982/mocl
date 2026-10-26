@@ -99,7 +99,7 @@
 | C7 | 会话列举作用域 | opencode CLI 是 project 作用域（非 git 目录返回 `[]`，`opencode.md:438`）；kimi `session/list` 只按 cwd 过滤（`kimi.md:389`、`:234`）；claude `listSessions` 可跨目录；codex `thread/list` 分页 | **以协议/API 面为准**，CLI 面的空结果不作判据；兼容层自建索引为权威（见对策列） |
 | C8 | 原生子代理证据强度 | codex：协议一等字段 `collabAgentToolCall`（强）；claude：二进制字符串 + `meta.json`，`SendMessage/ListAgents` **无公开 typing**（`claude-code.md:110`）；kimi：profile + 落盘，ACP 未暴露方法（`kimi.md:453`）；opencode：agent 定义 + 子会话 id | 一律记 ✅，但**按证据强度分级**并写入未决项：codex 可直接编排；claude 的地址面（SendMessage 入参）未定型，施工须先补 schema 再依赖 |
 | C9 | 「支持」的判定口径 | 调研文档里存在待验证标记（如 `V-CC-1`、`V-CX-1`）；有的能力行按「产品面存在」记支持，有的按「通道实测」记支持 | **本矩阵统一口径**：状态 = 本机实测 + 通道已确认；产品面存在但未实测者一律 🟡 并进未决项。调研文档中的待验证标记不改原文，只在本文件转写为未决项 |
-| C10 | headless 的附加限制 | BRIEF §3 只列 flag 存在；调研补充「`--include-partial-messages`/`--forward-subagent-text` 仅 `--print`+`stream-json`」（`claude-code.md:131`）、kimi「`-p` 与模式旗标互斥」（`kimi.md:106`） | **以调研的限制条件为准**（更细、可复跑）；BRIEF 的 flag 清单只作能力存在性，不作为组合可用性 |
+| C10 | headless 的附加限制 | 需求基线 §3 只列 flag 存在；调研补充「`--include-partial-messages`/`--forward-subagent-text` 仅 `--print`+`stream-json`」（`claude-code.md:131`）、kimi「`-p` 与模式旗标互斥」（`kimi.md:106`） | **以调研的限制条件为准**（更细、可复跑）；需求基线 的 flag 清单只作能力存在性，不作为组合可用性 |
 | C11 | opencode 凭据与模型口径 | 旧稿曾写「本机凭据不可用 → 端到端结论不能声称」；现行 `opencode.md:436`（§5 坑 1）已修正为「凭据存在、付费 key 过期、免费池可用」；调研 §4 第 11 行把路由判 ✅（原语齐全），矩阵按 D-019 判 🟡（生产默认模型当前不可用） | **口径分层、二者都对**：**能力存在性**以调研 ✅ 为准（路由原语齐全：`auth`/`-m`/`/api/session/{id}/model`/`set_config_option`）；**生产可用性**按 D-019 判 🟡（`opencode-go/deepseek-v4.1-flash` 401，需 Console 新建 key）；免费别名 `opencode/*-free` 按可用处理。禁止把「付费 key 过期」推广为「opencode 不可用」 |
 
 ## 5. 未决项（缺什么 / 谁补 / 施工阶段怎么补）
@@ -133,7 +133,7 @@ codex --version                                                        # codex-c
 claude --version                                                       # 2.1.310 (Claude Code) = 宿主线（另一条升级线；适配器基线用 SDK 内置 CLI 2.1.263）
 ~/.opencode/bin/opencode --version                                     # opencode v2.1.4
 
-# 2) 「能力关在插件门内」的两条硬事实（对应 BRIEF §3）
+# 2) 「能力关在插件门内」的两条硬事实（对应 需求基线 §3）
 grep -c 'ephemeral' ~/.dsh/profiles/desktop/node_modules/@deepseek-ai/dsh-subagent-codex/lib/index.js        # 7
 grep -c -E 'persistSession|canUseTool' ~/.dsh/profiles/desktop/node_modules/@deepseek-ai/dsh-subagent-claude-code/lib/index.js  # 2
 python3 -c "import json,os;print(sorted(json.load(open(os.path.expanduser('~/.config/opencode/service.json'))).keys()))"  # ['password']：只列键名，不打印值

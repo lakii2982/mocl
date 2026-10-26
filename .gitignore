@@ -1,8 +1,26 @@
+# dependencies / build output
 node_modules/
 dist/
 coverage/
 *.tsbuildinfo
-.DS_Store
+
+# local state and probe reports
 var/
 e2e/tmp/
 e2e/out/
+.DS_Store
+
+# local configuration (never commit real credentials)
+config.local.json
+config.local.*
+.env
+.env.*
+
+# internal working ledgers / handoff notes (not part of this repository)
+.astra/
+.worktrees/
+.agentspec/
+HANDOFF.md
+STATUS.md
+INSTALL-MOCL.md
+VERIFY.md

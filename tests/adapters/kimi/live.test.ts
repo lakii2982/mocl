@@ -13,6 +13,7 @@ import { describe, expect, it } from "vitest";
 import { KimiAdapter } from "../../../src/adapters/kimi/index.ts";
 import { readKimiConfigProbe } from "../../../src/adapters/kimi/permissions.ts";
 import { defaultKimiBinary, spawnKimiAcpTransport, KimiAcpClient } from "../../../src/adapters/kimi/acp-client.ts";
+import { toMoclError } from "../../../src/adapters/kimi/errors.ts";
 import type { AdapterEvent } from "../../../src/abi/adapter.ts";
 import { fixedRuntime } from "./helpers.ts";
 
@@ -38,11 +39,20 @@ describe.skipIf(!LIVE)("kimi 真实 ACP 冒烟（MOCL_LIVE=1）", () => {
 
         const created = await client.newSession({ cwd });
         expect(created.sessionId).toMatch(/^session_/);
-        // 显式切到只读规划档（§3.2 严格档）
+        // 显式切到只读规划档（§3.2 严格档）。实测（2026-10-26，default_plan_mode=true 机器）：
+        // 新会话即 plan 档，set_mode 与 set_config_option 请求同档均回 -32603
+        // data.details="Already in plan mode" → session.conflict = 目标已达成（§10.2 幂等，不重试）。
         try {
           await client.setMode(created.sessionId, "plan");
-        } catch {
-          await client.setConfigOption(created.sessionId, "mode", "plan");
+        } catch (error) {
+          if (toMoclError(error).code !== "session.conflict") {
+            // 老版本无 set_mode → 退到 set_config_option；同形冲突同样幂等。
+            try {
+              await client.setConfigOption(created.sessionId, "mode", "plan");
+            } catch (fallback) {
+              if (toMoclError(fallback).code !== "session.conflict") throw fallback;
+            }
+          }
         }
         const result = await client.prompt(created.sessionId, "只回复 OK");
         expect(result.stopReason).toBe("end_turn");

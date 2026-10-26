@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "global": {
+    "enabled": false,
+    "maxConcurrent": "runtime",
+    "maxDepth": 2,
+    "maxSessions": 16,
+    "turnTimeoutMs": 1800000,
+    "requestTimeoutMs": 30000,
+    "idleTimeoutMs": 180000,
+    "parentDelivery": "parent",
+    "progress": {
+      "mode": "off",
+      "maxItemsPerTurn": 8,
+      "maxCharsPerTurn": 1200,
+      "maxCharsPerItem": 400,
+      "samplingWindowMs": 5000
+    },
+    "dangerousModes": { "allowed": false },
+    "worktree": { "root": "~/.mocl/worktrees", "isolation": "required-for-write" },
+    "journal": { "dir": "var", "retentionDays": 7 },
+    "logLevel": "info"
+  },
+  "backends": {
+    "codex": {
+      "enabled": false,
+      "model": null,
+      "fallbackModel": null,
+      "permissionMode": "read-only",
+      "allowDangerousModes": false,
+      "maxConcurrent": "runtime",
+      "maxDepth": 2,
+      "worktreeIsolation": "required-for-write",
+      "channel": "acp",
+      "binaryPath": null,
+      "env": {}
+    },
+    "kimi": {
+      "enabled": false,
+      "model": null,
+      "fallbackModel": null,
+      "permissionMode": "read-only",
+      "allowDangerousModes": false,
+      "maxConcurrent": "runtime",
+      "maxDepth": 2,
+      "worktreeIsolation": "required-for-write",
+      "channel": "acp",
+      "binaryPath": null,
+      "env": {}
+    },
+    "claude-code": {
+      "enabled": false,
+      "model": null,
+      "fallbackModel": null,
+      "permissionMode": "read-only",
+      "allowDangerousModes": false,
+      "maxConcurrent": "runtime",
+      "maxDepth": 2,
+      "worktreeIsolation": "required-for-write",
+      "channel": "acp",
+      "binaryPath": null,
+      "env": {}
+    },
+    "opencode": {
+      "enabled": false,
+      "model": "opencode-go/deepseek-v4.1-flash",
+      "fallbackModel": "opencode/deepseek-v4.1-flash-free",
+      "permissionMode": "read-only",
+      "allowDangerousModes": false,
+      "maxConcurrent": "runtime",
+      "maxDepth": 2,
+      "worktreeIsolation": "required-for-write",
+      "channel": "http",
+      "binaryPath": null,
+      "env": {}
+    }
+  }
+}

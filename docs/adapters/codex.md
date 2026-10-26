@@ -8,9 +8,9 @@
 |---|---|
 | `backendId` | `codex` |
 | `transport` | `app-server-jsonrpc`（ABI §4 绑定表） |
-| 基线二进制（唯一） | `PATH` 上的 `codex`（解析为绝对路径后钉住）：`/Users/lakii2982/.nvm/versions/node/v24.18.1/bin/codex` → **`codex-cli 0.164.0`** |
+| 基线二进制（唯一） | `PATH` 上的 `codex`（解析为绝对路径后钉住）：`~/.nvm/versions/node/v24.18.1/bin/codex` → **`codex-cli 0.164.0`** |
 | 旧载荷（待升级） | `~/.dsh/profiles/desktop/node_modules/@openai/codex*` = `0.153.4`（DSH 插件当前使用；**不得作为基线**，升级见 §1.2） |
-| 上游契约 | `docs/abi/abi-v0.md`、`docs/research/codex.md`（下称 `R`）、`docs/research/capability-matrix.md`（下称 `M`）、`.astra/CONTEXT-DSH-SEAM.md`（下称 `C`） |
+| 上游契约 | `docs/abi/abi-v0.md`、`docs/research/codex.md`（下称 `R`）、`docs/research/capability-matrix.md`（下称 `M`）、`docs/integration/00-dsh-integration.md`（下称 `C`） |
 | 状态 | design-frozen（本文能力声明为**握手期应产出**的目标值；标 `[未验证]` 的断言留给 C4 用真实 turn 补测） |
 
 **证据标记**：`[实测]` = 本机命令可复跑（`bash repro/probe-codex.sh`）；`[实测-本轮]` = 本次规格编写时的只读探测（复跑命令见 §12.3、原始输出见附录 A）；`[文档]` = 官方导出物/帮助文本；`[推断]` = 前两者推导、未直接执行。
@@ -113,7 +113,7 @@ ABI `versionPinning` 位：`state=native`，`detail="V0 旧载荷一致性 + V1/
 - `cwd`：进程级 `cwd` 不重要（`thread/start` 每线程带 `cwd`）；但**必须**在 spawn 时设置 `CODEX_HOME`（生产默认 `~/.codex`；测试/隔离指到临时目录，见 §12.3）。
 - **`CODEX_HOME` 必须已存在**（基线 0.164.0 行为变化）：目录不存在时 app-server **直接退出**：`Error: CODEX_HOME points to "…", but that path does not exist`（旧载荷 0.153.4 会自动创建，`[实测]`）。适配器**不得**替用户静默创建该目录（防止在错误路径初始化出假登录态），只校验并 fail fast（`storage.write-failed` 或 `auth.missing-credential`，按原因归类）；测试脚本先 `mkdir -p`。
 - 基线启动 stderr 可能有一条**无害** warning：`could not create PATH aliases`（`CODEX_HOME` 指向非默认位置时出现，不阻断，只进 `diagnostic.log{debug}`）。
-- `env`：只透传白名单变量（`HOME`/`PATH`/`CODEX_HOME`/代理相关），父进程敏感变量清洗（BRIEF 硬约束 5、`C:37` 的同款做法参照 claude 插件 `scrubbedParentEnv()`）。
+- `env`：只透传白名单变量（`HOME`/`PATH`/`CODEX_HOME`/代理相关），父进程敏感变量清洗（需求基线 硬约束 5、seam 事实基线（`docs/integration/00-dsh-integration.md` §1） 的同款做法参照 claude 插件 `scrubbedParentEnv()`）。
 - 帧：**newline-delimited JSON-RPC 2.0**（每帧一行 JSON，无 `Content-Length` 头）—— `[实测-本轮]` 按此写入即被接受；与 ABI §4 的 `acp-stdio` 行同形态，但**不得**因形态相同就复用 ACP 客户端（方法名空间完全不同）。
 
 ### 2.3 握手序列（含 ABI 三阶段握手的后端侧落点）
@@ -305,7 +305,7 @@ codex → L1 : {turn:{id:"0199…", status:"inProgress", items:[]}}
 
 ### 4.2 `ephemeral:true` 必须改成持久线程（**最容易踩的坑 #2**）
 
-- 现状：DSH 现有插件每次 `thread/start` 固定带 `ephemeral:true`，并且**断言返回值必须 ephemeral**（`C:47`、`R:123`：`if (thread.ephemeral !== true) throw`）。这不是"没实现续接"，是**主动拒绝**。
+- 现状：DSH 现有插件每次 `thread/start` 固定带 `ephemeral:true`，并且**断言返回值必须 ephemeral**（seam 事实基线（`docs/integration/00-dsh-integration.md` §1）、`R:123`：`if (thread.ephemeral !== true) throw`）。这不是"没实现续接"，是**主动拒绝**。
 - 本文要求：`thread/start` 显式 `ephemeral:false`，**删除**该断言（改造点在适配器/L4，不在本设计阶段）。
 - `[实测-本轮]` 已证明非 ephemeral 线程成立：响应 `thread.ephemeral=false`，并给出 `path=…/sessions/2026/10/25/rollout-…jsonl`、`cliVersion=0.164.0`、`historyMode=paginated`（附录 A-1）。
 - **但**：**线程刚建、还没有任何 turn 时没有 rollout 文件**，此时 `thread/resume`/`thread/fork`/`thread/archive` 一律报 `-32600 no rollout found for thread id …`（`[实测-本轮]`，附录 A-2）。→ 适配器的建会话必须二选一：
@@ -607,7 +607,7 @@ p.terminate()
 
 ### 6.3 兼容层职责边界（只透传，不统一编排语义）
 
-- ABI `nativeSubagents`、`childSessionUpdates` 声明为 `native`，但**只保证"看得见"**，不保证跨后端统一编排（`M:19` 对策列、`C:63`）。
+- ABI `nativeSubagents`、`childSessionUpdates` 声明为 `native`，但**只保证"看得见"**，不保证跨后端统一编排（`M:19` 对策列、seam 事实基线（`docs/integration/00-dsh-integration.md` §1））。
 - 子会话**必须登记为独立 ABI 会话**（`parentSessionId` 指向父、`rootSessionId` 指向根），才能复用 `session.query/subscribe/interrupt`；其 `backendSessionId` = 子线程 id。若子线程从未能被 `thread/read`（未落盘），则只发 `child.spawned`+`child.completed`，`subscribe` 返回 `capability.missing`（对应 ABI R-14）。
 - 深度：`depth ≤ limits.maxNestingDepth`（默认 2，与 `[agents] max_depth=2` 对齐）。超限请求由 Broker 拒绝（`limit.nesting-exceeded`），**不**把 `max_depth` 调大去迎合调用方。
 - 受 `[agents] max_concurrent_threads_per_session=3` 约束：同会话并行子代理 ≤3。适配器在 `child.spawned` 前计数，超限转 `session.warning{code:"product-concurrency-limit"}`（不阻断，因为决定权在模型）。
@@ -669,7 +669,7 @@ p.terminate()
 | 项 | 事实 | 证据 |
 |---|---|---|
 | 认证面 | app-server 有 `account/read`、`account/login/start|cancel`、`account/logout`、`account/rateLimits/read`、`account/usage/read` | 导出 `ClientRequest` `[实测]` |
-| 凭据位置 | `CODEX_HOME`（默认 `~/.codex`）下的 auth 存储；**本文不读取内容**，只检查存在性与 `account/read` 返回的登录态 | 纪律同 `R:98`、BRIEF §5 |
+| 凭据位置 | `CODEX_HOME`（默认 `~/.codex`）下的 auth 存储；**本文不读取内容**，只检查存在性与 `account/read` 返回的登录态 | 纪律同 `R:98`、需求基线 §5 |
 | 未登录 | `account/read` 表明未认证，或 `turn/start` 返回 `CodexErrorInfo.unauthorized` | `[推断]`（凭据态未实测，C4 补） |
 | 交互式登录 | `account/login/start` 是**交互式**（浏览器/设备码）→ 无人值守**禁止**走；未登录即 `auth.login-required` + `blocked` | ABI §8 `auth.login-required` |
 
@@ -723,7 +723,7 @@ configured > 运行时值 → 取运行时值 + session.warning{code:"limit-clam
 
 1. 三个上限的配置值**只能下调**，不得高于运行时来源值（ABI §3.2 `concurrencyControl`："后端声明并强制"）。
 2. 运行时值变化（改 patch / `codex -c` 覆盖 / 升级后配置变更）→ **下一次** `session.create` 重新派生；已运行会话不重算（运行期不改语义，ABI §3.5 硬规则 2）。
-3. **读取失败 ≠ 降级**：任一来源读不到（seam 配置缺失、`config/read` 返回 `agents:null`、TOML 无 `[agents]`）→ **fail-closed**：`adapter.open` 拒绝并返回 `capability.missing{missingBits:["concurrencyControl"]}`（施工 C2 要求"构造即 fail-closed"），**禁止**用文档/代码里的常量或本地信号量顶替（`.astra/LEDGER.md` D-016）。
+3. **读取失败 ≠ 降级**：任一来源读不到（seam 配置缺失、`config/read` 返回 `agents:null`、TOML 无 `[agents]`）→ **fail-closed**：`adapter.open` 拒绝并返回 `capability.missing{missingBits:["concurrencyControl"]}`（施工 C2 要求"构造即 fail-closed"），**禁止**用文档/代码里的常量或本地信号量顶替（决策记录 D-016）。
    - 本轮实测：空 `CODEX_HOME` 下 `config/read` 返回 `"agents": null`（`[实测]`）→ 必须由部署方在 `~/.codex/config.toml` 或 `codex -c` 显式提供，或由 Broker 注入；不读真实 home 的一次实测留给 C4（避免触发 daemon/sqlite 写入）。
 
 `concurrencyControl=native` 的依据是"产品有声明上限且可运行时读取"，**不是**任何固定数字；轮次时长仍取 ABI `limits.maxTurnMs`（ABI §11.2 契约默认值，不属本适配器的并发常量）。
@@ -865,7 +865,7 @@ configured > 运行时值 → 取运行时值 + session.warning{code:"limit-clam
 ### 12.1 上游证据复跑（只读、零额度、幂等）
 
 ```bash
-cd /Users/lakii2982/项目/多智能体编排
+cd "$(git rev-parse --show-toplevel)"
 bash repro/probe-codex.sh                    # 默认探测基线 0.164.0；退出码 0 = 基线断言全过
 bash repro/probe-codex.sh --legacy           # 额外输出 0.153.4→0.164.0 迁移差异（对照用）
 # 期望在 stdout 看到：
@@ -888,7 +888,7 @@ python3 tools/check_docs.py adapters; echo "rc=$?"
 ### 12.3 零额度握手 smoke（基线 0.164.0；`[实测-本轮]` 已通过；不写 `~/.codex`、不花额度）
 
 ```bash
-cd /Users/lakii2982/项目/多智能体编排
+cd "$(git rev-parse --show-toplevel)"
 CODEX_HOME=$(mktemp -d) python3 - <<'PY'
 import json, os, shutil, subprocess
 BIN = os.environ.get("MOCL_CODEX_BIN") or shutil.which("codex")   # 基线 0.164.0（不用 profile 旧载荷）
@@ -1039,7 +1039,7 @@ TurnStartParams +disabledPluginIds/parentTurnId/rootTurnId；ThreadResumeRespons
 ## 附录 B — 交叉引用与遗留
 
 - ABI：`docs/abi/abi-v0.md` §2.2/§2.3（握手/版本断言）、§3.2/§3.5（能力位与降级）、§4（传输绑定与反向请求）、§5.2（信封不变量）、§6.1/§6.2（M2/M3/M4/M5/M8）、§7（事件）、§8.2（错误码）、§9（幂等）、§10（安全）、§11（折叠上限）。
-- 上游事实：`docs/research/codex.md`（R）、`docs/research/capability-matrix.md`（M）、`.astra/CONTEXT-DSH-SEAM.md`（C）。
+- 上游事实：`docs/research/codex.md`（R）、`docs/research/capability-matrix.md`（M）、`docs/integration/00-dsh-integration.md`（C）。
 - 交给 C4 的未决：V-CX-1（0.164.0 真实 turn 往返）、V-CX-2（kill→resume 同一 rollout）、V-CX-3（10 个反向请求不挂起）、AB-V4（429 形态）。
 - 交给升级动作的未决（R2）：V-CX-6（0.164.0 读 0.153.4 rollout）、V-CX-7（插件三方法 + `ephemeral` 断言在新版成立）、A0 验收；升级完成后必须复跑 §12.4 全部断言。
 - 已闭环：`event.json` 35 变体全覆盖（§5.6）；`backend.internal-error` 已按 ABI v0.1 MINOR 增补（§8.2）。

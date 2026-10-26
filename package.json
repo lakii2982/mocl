@@ -1,24 +1,51 @@
 {
   "name": "mocl",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
   "type": "module",
-  "description": "MOCL — DSH 多智能体编排兼容层（施工仓；ABI 真源见 ../docs/abi/abi-v0.md）",
+  "description": "MOCL — a multi-agent orchestration compatibility layer for DeepSeek Harness (DSH) that unifies codex, claude-code, kimi and opencode as orchestration-capable subagents.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lakii2982/mocl.git"
+  },
+  "homepage": "https://github.com/lakii2982/mocl#readme",
   "engines": {
     "node": ">=24"
   },
+  "files": [
+    "src/",
+    "schema/",
+    "tools/",
+    "scripts/",
+    "patch/",
+    "docs/",
+    "orchestrator/",
+    "agents/",
+    "config.default.json",
+    "config.example.json",
+    "LICENSE",
+    "README.md",
+    "README.zh-CN.md"
+  ],
   "scripts": {
-    "sync:schema": "node tools/sync-schema.mjs",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run",
-    "validate": "node tools/validate-abi.mjs",
-    "baseline:codex": "node scripts/assert-codex-baseline.mjs",
-    "upgrade:codex": "node scripts/upgrade-dsh-codex-payload.mjs",
+    "agent": "node orchestrator/cli.mjs",
     "assert:dsh-tool": "node scripts/assert-dsh-tool.mjs",
+    "assert:dsh-tool:bootstrap": "node scripts/assert-dsh-tool.mjs --bootstrap-profile",
+    "baseline:codex": "node scripts/assert-codex-baseline.mjs",
+    "build:plugin": "node tools/build-plugin-package.mjs",
+    "docs:check": "python3 tools/check_docs.py all",
     "e2e": "node e2e/pr-scenario.mjs",
     "e2e:live": "MOCL_LIVE=1 node e2e/pr-scenario.mjs",
-    "assert:dsh-tool:bootstrap": "node scripts/assert-dsh-tool.mjs --bootstrap-profile",
-    "build:plugin": "node tools/build-plugin-package.mjs"
+    "github:check": "node .github/scripts/verify-github-config.mjs",
+    "leak-scan": "node tools/leak-scan.mjs",
+    "process:check": "node agents/verify-agents.mjs",
+    "provision:github": "bash scripts/provision-github.sh",
+    "sync:schema": "node tools/sync-schema.mjs",
+    "test": "vitest run",
+    "test:orchestrator": "node --test orchestrator/test/",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "upgrade:codex": "node scripts/upgrade-dsh-codex-payload.mjs",
+    "validate": "node tools/validate-abi.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",

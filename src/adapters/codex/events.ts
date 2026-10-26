@@ -5,7 +5,7 @@
  * - 只产出 ABI §7 已定义的事件名；原生名只出现在本文件内部；
  * - 无法映射 → **丢弃 + 计数 + 节流 `session.warning{code:"adapter.event-dropped"}`**；
  * - 终态之后不再发该轮事件（EV-4）；`turn.*` 终态恰一个；
- * - payload 必须满足 `impl/schema/event.json` 的 `payload_*` 必填字段。
+ * - payload 必须满足 `schema/event.json` 的 `payload_*` 必填字段。
  */
 import { createHash } from "node:crypto";
 import type { AdapterEvent } from "../../abi/adapter.ts";

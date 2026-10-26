@@ -2,7 +2,7 @@
  * Patch 覆盖文件的解析与静态断言（C8）。
  *
  * 独立于宿主：既被 `scripts/assert-dsh-tool.mjs` 调用（Node ≥24 原生 TS），
- * 也被 `tests/plugin/patch.test.ts` 直接测试。无外部 YAML 依赖（只覆盖 impl/patch 子集）。
+ * 也被 `tests/plugin/patch.test.ts` 直接测试。无外部 YAML 依赖（只覆盖 patch/ 子集）。
  */
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";

@@ -14,7 +14,7 @@ describe("schema 编译与冒烟", () => {
     }
   });
 
-  it("schemaPath 指向 impl/schema 下的同步副本", () => {
+  it("schemaPath 指向 schema/ 下的同步副本", () => {
     expect(schemaPath("session")).toMatch(/\/schema\/session\.json$/);
   });
 

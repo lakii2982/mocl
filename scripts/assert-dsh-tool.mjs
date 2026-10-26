@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * C8/C9 工具可见性断言（`impl/scripts/assert-dsh-tool.mjs`）。
+ * C8/C9 工具可见性断言（`scripts/assert-dsh-tool.mjs`）。
  *
  * 用法：
  *   node scripts/assert-dsh-tool.mjs                       # 静态 + headless dump-config（+ 可选 live）
@@ -99,7 +99,7 @@ function manualSteps() {
   return [
     "手工步骤（与脚本等价）：",
     "  1) dsh --from-default-profile headless --profile mocl-e2e --dump-config",
-    "  2) 在 impl/e2e/tmp/plugin-package 准备 package.json(name=@mocl/dsh-plugin)+index.mjs（re-export src/plugin/index.ts）",
+    "  2) 在 e2e/tmp/plugin-package 准备 package.json(name=@mocl/dsh-plugin)+index.mjs（re-export src/plugin/index.ts）",
     "  3) dsh plugin --profile mocl-e2e add file:$PWD/e2e/tmp/plugin-package",
     "  4) dsh --profile mocl-e2e --patch $PWD/patch/cordis.patch.yml --dump-config | grep -E 'mocl|subagent_agent'",
     `  5) 清理：rm -rf ${join(profileSupportDir(), PROFILE_NAME)}`,

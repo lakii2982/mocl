@@ -16,21 +16,21 @@
 | 项 | 值 | 证据 |
 |---|---|---|
 | 版本 | `2.3.1` | `kimi --version` |
-| 二进制 | `/Users/lakii2982/.kimi-code/bin/kimi`，189,674,560 B，2026-10-24 00:02 | `ls -l` |
+| 二进制 | `~/.kimi-code/bin/kimi`，189,674,560 B，2026-10-24 00:02 | `ls -l` |
 | 用户配置 | `~/.kimi-code/config.toml`（4786 B） | `kimi doctor` → `OK config.toml` |
 | TUI 配置 | `~/.kimi-code/tui.toml` | 同上 |
 | 会话存储 | `~/.kimi-code/sessions/wd_<workspace>_<hash>/session_<uuid>/` | `kimi session list --json` 的 `sessionDir` |
 | 诊断日志 | `~/.kimi-code/logs/kimi-code.log` + 每会话 `logs/kimi-code.log` | 报错信息里的 "See log:" 路径 |
 | 凭据 | `~/.kimi-code/credentials/`、`oauth/`、`server.token`（存在性，**未读取内容**） | `ls -la ~/.kimi-code/` |
-| 平台 | macOS arm64 | BRIEF §6 |
+| 平台 | macOS arm64 | 需求基线 §6 |
 
 ```
 $ ~/.kimi-code/bin/kimi --version
 2.3.1
 $ ~/.kimi-code/bin/kimi doctor
 Kimi doctor
-OK config.toml  /Users/lakii2982/.kimi-code/config.toml
-OK tui.toml     /Users/lakii2982/.kimi-code/tui.toml
+OK config.toml  ~/.kimi-code/config.toml
+OK tui.toml     ~/.kimi-code/tui.toml
 All checked config files are valid.
 ```
 
@@ -212,7 +212,7 @@ $ ls -d ~/.kimi-code/sessions/*/*/agents/* | sed 's#.*/agents/#agents/#' | sort 
                    "description":"Open the device-code login flow in a terminal.",
                    "args":["--login"], "env": {},
                    "_meta":{"terminal-auth":{"type":"terminal","label":"Login with Kimi account",
-                            "command":"/Users/lakii2982/.kimi-code/bin/kimi",
+                            "command":"~/.kimi-code/bin/kimi",
                             "args":["login"],"env":{}}}}],
   "agentInfo": {"name":"Kimi Code CLI","version":"2.3.1"}
 }}

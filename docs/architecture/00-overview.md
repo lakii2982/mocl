@@ -20,12 +20,12 @@ MOCL 是位于 **DSH 与四个外部编码智能体（codex / claude-code / kimi
 | 事实 | 对架构的强制含义 | 证据 |
 |---|---|---|
 | 四后端的可编程面互不相同：kimi = ACP over stdio；opencode = ACP + v2 HttpApi（中断/权限应答/切模型只在 HTTP 面）；codex = app-server JSON-RPC；claude-code = Agent SDK（in-process，拉起 CLI 子进程） | **L0 必须多绑定**（含 opencode 双通道），ABI 不能长在任一传输上 | `docs/research/{kimi,opencode,codex,claude-code}.md` |
-| 外部后端在 DSH seam 里是「一次执行、拒绝后续输入」，`send_message`/冷恢复只对本地 `mode: continuable` 生效 | 会话连续性必须由兼容层**自管**（Broker 拥有会话真相），不能寄望 seam 外部条目 | `.astra/CONTEXT-DSH-SEAM.md` §2 |
+| 外部后端在 DSH seam 里是「一次执行、拒绝后续输入」，`send_message`/冷恢复只对本地 `mode: continuable` 生效 | 会话连续性必须由兼容层**自管**（Broker 拥有会话真相），不能寄望 seam 外部条目 | `docs/integration/00-dsh-integration.md` §1 |
 | ACP 会话本身可续接（kimi `session/load`、opencode `session/load`），但能力参差：kimi 无中断（`session/cancel` → -32601）、opencode ACP 无 `session/set_model`、opencode ACP 只暴露 build/plan 两个 mode | **能力位协商 + 降级表**是必需品，不是锦上添花 | kimi.md §3.6/§5-5、opencode.md §3.4/§5-6 |
 | codex 双版本并存（bundle 0.153.4 / PATH 0.164.0），协议为增量兼容但字段有差异 | L1 必须**钉住版本并握手断言**；L2 必须能处理 `protocol.version-mismatch` | codex.md §1/§6-1 |
 | claude CLI 与 Agent SDK 是两条升级线，`persistSession:false` 会直接掐死 resume/fork | 会话持久化是 L1 的**显式配置项**，不是默认行为 | claude-code.md §6-1/§6-2 |
 | 部分后端无 OS 级沙箱（kimi/opencode 实测否定），默认权限全放行 | 安全默认必须由**外层策略**（只读档 + worktree）兜底 | kimi.md §4-10、opencode.md §5-9 |
-| 父会话只增不改（KV cache）；token 级事件可极密（kimi 一句思考 161 条 fragment） | L3 必须**折叠/限流/丢弃优先级**，L4 只追加 | `.astra/BRIEF.md` §6-3、kimi.md §5-6 |
+| 父会话只增不改（KV cache）；token 级事件可极密（kimi 一句思考 161 条 fragment） | L3 必须**折叠/限流/丢弃优先级**，L4 只追加 | 需求基线 §6-3、kimi.md §5-6 |
 
 ## 3. DEC-1 决策：内部 ABI 自研 + 传输层按后端选择
 
@@ -72,7 +72,7 @@ MOCL 是位于 **DSH 与四个外部编码智能体（codex / claude-code / kimi
 | N-1 | **重复造 ACP**：ACP 已经定义了 session/new/load/list/fork/prompt/cancel/set_mode/request_permission 与 fs/terminal 反向方法，自研 ABI 等于再写一遍，社区工具（编辑器、IDE、其他 agent）无法复用 | 高 | 承认重复。缓解：ABI 的方法名/语义**有意对齐 ACP 概念**（create≈new、resume≈load、list≈list、fork≈fork、respond≈request_permission 应答），并在二期提供 ACP facade；内部仍保留 ABI，因为它承载 ACP 没有的三件事（幂等账本、fencing epoch、错误分类树）。若二期 facade 被验证可用，可把「内部 ABI」降级为「facade 之下的实现细节」。 |
 | N-2 | **三套传输 = 三倍测试矩阵**：ACP、app-server、SDK 的握手/超时/取消语义都不同，故障注入 ×3 | 高 | 承认。缓解：L0 只暴露 7 个原语（open/request/notify/onNotification/onReverseRequest/close/health），L1 之上所有测试复用同一套 ABI 契约测试；后端差异被压进 L1 的映射表（D5），L2/L3 测试用 mock adapter，矩阵不乘 3。 |
 | N-3 | **自研协议会漂移**：没有外部实现方，字段语义容易在施工中悄悄变形，文档与代码脱节 | 中 | 缓解：能力位/事件/错误码三张表 + JSON Schema + ABI 一致性测试（abi-v0 §14 ABI-T1..T8）把契约变成可执行断言；CI 强制 `check_docs.py abi` + schema 自检。 |
-| N-4 | **上层可能只需要一次性调用**：DSH seam 外部后端本来只支持一次执行；为「续接」投入 Broker+状态机可能过度设计 | 中 | 反驳：BRIEF 已把「可续接/可冷恢复/进度折叠」列为目标与硬约束；且能力事实表明连续性在产品侧存在，只是 DSH 适配层关掉了。若一期只做一次性，Broker 可退化为薄封装（状态机仍是 created→running→completed），不浪费。 |
+| N-4 | **上层可能只需要一次性调用**：DSH seam 外部后端本来只支持一次执行；为「续接」投入 Broker+状态机可能过度设计 | 中 | 反驳：需求基线 已把「可续接/可冷恢复/进度折叠」列为目标与硬约束；且能力事实表明连续性在产品侧存在，只是 DSH 适配层关掉了。若一期只做一次性，Broker 可退化为薄封装（状态机仍是 created→running→completed），不浪费。 |
 | N-5 | **ACP 是事实标准，越晚靠拢越贵** | 中 | 部分接受：所以选择「ABI 语义对齐 ACP + 二期 facade」，而不是另造一套完全不同的概念；同时把 ACP 作为 kimi/opencode 的**首选传输**，让两条腿都保留。 |
 | N-6 | **自研 ABI 需要自己实现权限应答/反向请求**，而 ACP 已有 `session/request_permission` 语义 | 低 | 反驳：反向请求本来就是**传输层义务**（abi-v0 §4 第 1 条），ABI 只定义归一化事件 `permission.requested/resolved`；无需自造传输，只需把各传输的反向请求映射到同一对事件。 |
 
@@ -239,21 +239,21 @@ sequenceDiagram
 |---|---|---|
 | 幂等 | 写操作必带 `clientRequestId`；副作用至多一次；重复调用返回缓存结果 | abi-v0 §9 |
 | fencing | 每次恢复/接管 `epoch+1`；旧 epoch 的写与事件一律丢弃 | 02-state-machine §5 |
-| 容量 | 并发/嵌套/事件字节/父会话增量四类上限都必须有默认值且可配 | BRIEF §6-4 |
-| 安全默认 | `read-only` 为默认档；`yolo` 必须显式 + worktree 隔离 | BRIEF §6-5 |
-| 只追加 | 父会话前缀不可改写；增量可折叠不可回滚 | BRIEF §6-3 |
+| 容量 | 并发/嵌套/事件字节/父会话增量四类上限都必须有默认值且可配 | 需求基线 §6-4 |
+| 安全默认 | `read-only` 为默认档；`yolo` 必须显式 + worktree 隔离 | 需求基线 §6-5 |
+| 只追加 | 父会话前缀不可改写；增量可折叠不可回滚 | 需求基线 §6-3 |
 | 可观测 | 每层输出结构化诊断；错误必带 `traceId`；指标口径统一 | 01-layers §6 |
 | 版本 | ABI 版本协商 + 后端版本断言；失配快速失败 | abi-v0 §2/§13 |
 | 无人值守 | 所有反向请求必须有确定性应答；无 handler = fail-closed | abi-v0 §10 SEC-3 |
 
-## 9. 与 BRIEF 成功标准的映射
+## 9. 与 需求基线 成功标准的映射
 
 | 标准 | 本文/关联文档中的证据点 |
 |---|---|
 | A2（架构含分层/数据流/状态机/失败模式/部署） | 本文 §4/§5/§6；`02-state-machine.md`；`03-failure-modes.md` |
 | A3（ABI 含 schema/版本协商/错误分类/能力位） | `docs/abi/abi-v0.md` §2/§3/§8；`docs/abi/schema/*.json` |
-| BRIEF 硬约束 3（父会话只增量） | §5.2 + abi-v0 §11 + 01-layers §L3/L4 |
-| BRIEF 硬约束 4/5（成本与安全默认） | §6 部署形态 + §8 横切 + 03 失败模式（429/额度/并发） |
+| 需求基线 硬约束 3（父会话只增量） | §5.2 + abi-v0 §11 + 01-layers §L3/L4 |
+| 需求基线 硬约束 4/5（成本与安全默认） | §6 部署形态 + §8 横切 + 03 失败模式（429/额度/并发） |
 | DEC-1 | §3（推荐 + 反方 + 全 ACP 失败条件 + 重评估触发） |
 
 ## 10. 非目标与未决

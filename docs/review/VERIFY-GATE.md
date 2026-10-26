@@ -1,7 +1,7 @@
 # VERIFY-GATE — D9 独立复验记录（fresh verifier）
 
 > 角色：独立评审（新上下文，只看产物与证据）。本节只**重跑、只记录**，不修改任何被验产物；所有命令在项目根
-> `/Users/lakii2982/项目/多智能体编排` 执行。时间：2026-10-25（Asia/Shanghai），macOS arm64。
+> `$(git rev-parse --show-toplevel)` 执行。时间：2026-10-25（Asia/Shanghai），macOS arm64。
 > 纪律：每条独立复验限时 60–90s；超时记 `[timeout]`，不重试、不等待 hang 进程。额度影响已逐条标注。
 
 ## 0. 结论
@@ -22,10 +22,10 @@ FAIL docs
 checks=315 failures=6
   FAIL [docs/review/SCORECARD.md] 文件不存在
   FAIL [docs/review/VERIFY-GATE.md] 文件不存在   ← 本节落盘后消失
-  FAIL [docs/00-README.md] 文件不存在            ← D10 写域
-  FAIL [HANDOFF.md] 文件不存在                   ← D10 写域
-  FAIL [.astra/INTEGRATION.md] 文件不存在        ← D10 写域
-  FAIL [.astra/JOURNAL.md] 文件不存在            ← D10 写域
+  FAIL [docs/index.md] 文件不存在            ← D10 写域
+  FAIL [施工交接书] 文件不存在                   ← D10 写域
+  FAIL [集成记录] 文件不存在        ← D10 写域
+  FAIL [规则台账] 文件不存在            ← D10 写域
 [exit: 1]
 ```
 
@@ -133,7 +133,7 @@ $ grep -n -A6 "NO_START_CAPABILITIES *=" /tmp/dsh-asar-rev/dsh/node_modules/@dee
 2795: });
 ```
 
-**判定：PASS**。四个能力位**全 false**，与 BRIEF §3 / CONTEXT §2 完全一致（另在
+**判定：PASS**。四个能力位**全 false**，与 需求基线 §3 / CONTEXT §2 完全一致（另在
 `lib/types/out-of-process.js:48` 有同名导出）。
 
 ## 3. 「最小可运行示例」真实执行（各 1 条，原文执行，限 90s）
@@ -178,7 +178,7 @@ Traceback (most recent call last):
   File "/tmp/kimi_acp_min.py", line 20, in wait
     with open(f["params"]["path"], encoding="utf-8", errors="replace") as fh:
 FileNotFoundError: [Errno 2] No such file or directory:
-  '/Users/lakii2982/.kimi-code/sessions/wd_tmp_11fe14a563f7/session_9a9fabe2-.../agents/main/plans/damage-wiccan-dove.md'
+  '~/.kimi-code/sessions/wd_tmp_11fe14a563f7/session_9a9fabe2-.../agents/main/plans/damage-wiccan-dove.md'
 ```
 
 - 根因：示例实现了 `fs/read_text_file` 并用 `open()` 直接读，**未处理「文件不存在」**。ACP 客户端在文件不存在时
@@ -281,13 +281,13 @@ $ python3 -c "…len(error.json code enum)…"  → 46，含 backend.internal-er
 $ grep -rn "45 个|45 码" docs/ --include=*.md | grep -v docs/review/   → 0（仅 INTEGRATION 修复记录提及「改 46」）
 
 # F5 / F7 / F8
-$ grep -c "可见且可派发" .astra/PLAN.md        → 0
-$ grep -n "人工" .astra/PLAN.md                → 仅第 58 行反例规则原文
+$ grep -c "可见且可派发" 施工计划               → 0
+$ grep -n "人工" 施工计划                    → 仅第 58 行反例规则原文
 $ sed -n '/## 7. 执行与门禁/,/## 8/p' docs/test/00-test-plan.md
   门禁 4 = golden + 白名单字段（ts/requestId/绝对路径）自动 diff
-$ wc -l docs/00-README.md                      → 90 行（30 秒速查 + 按角色路径 + 文档地图）
-$ grep -n "按用途索引" docs/abi/abi-v0.md       → §12.1 存在，README/HANDOFF 已引用
+$ wc -l docs/index.md                      → 90 行（30 秒速查 + 按角色路径 + 文档地图）
+$ grep -n "按用途索引" docs/abi/abi-v0.md       → §12.1 存在，README/交接书 已引用
 ```
 
-**复评结论**：F1–F8 **8/8 已修复**，无新增阻断；新增非阻断 F9（README/HANDOFF 与 schema 双源数字，
+**复评结论**：F1–F8 **8/8 已修复**，无新增阻断；新增非阻断 F9（README/交接书 与 schema 双源数字，
 当前一致，建议后续改为引用）。最终判定移交 `SCORECARD.md §9.4`：**通过（可交付施工）**。

@@ -208,6 +208,7 @@ export class FakeAcp implements KimiAcpApi {
   newSessionError: MoclError | undefined;
   loadError: MoclError | undefined;
   setModeError: MoclError | undefined;
+  setConfigOptionError: MoclError | undefined;
   closeError: MoclError | undefined;
   reverseHandlersRegistered = true;
   terminated = false;
@@ -278,6 +279,7 @@ export class FakeAcp implements KimiAcpApi {
   async setConfigOption(sessionId: string, configId: string, value: string): Promise<Record<string, never>> {
     this.configOptionCalls.push({ configId, value });
     this.calls.push({ method: "session/set_config_option", args: [sessionId, configId, value] });
+    if (this.setConfigOptionError !== undefined) throw this.setConfigOptionError;
     return {};
   }
 

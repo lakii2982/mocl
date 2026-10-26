@@ -10,7 +10,7 @@
 
 | 角色 | 路径 | 版本 | 证据 |
 |---|---|---|---|
-| **基线（唯一）** | `/Users/lakii2982/.nvm/versions/node/v24.18.1/bin/codex`（node 包装 → `.../lib/node_modules/@openai/codex/bin/codex.js`） | **0.164.0** | `codex --version` → `codex-cli 0.164.0` `[实测] §7-1` |
+| **基线（唯一）** | `~/.nvm/versions/node/v24.18.1/bin/codex`（node 包装 → `.../lib/node_modules/@openai/codex/bin/codex.js`） | **0.164.0** | `codex --version` → `codex-cli 0.164.0` `[实测] §7-1` |
 | 基线原生二进制 | `~/.nvm/versions/node/v24.18.1/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex` | 0.164.0（260 MB） | `readlink -f` + `--version` `[实测] §7-1` |
 | 旧载荷（待升级） | `~/.dsh/profiles/desktop/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex` | **0.153.4** | `<bundle> --version` `[实测] §7-1` |
 | 旧载荷 npm 包 | 同目录 `package.json` | `0.153.4-darwin-arm64` | `[实测]` |
@@ -158,7 +158,7 @@ developer_instructions = "..."
 
 ```bash
 # 一键复跑（幂等、只读、零额度）；默认探测基线 0.164.0；退出码 0 = 基线断言通过
-cd /Users/lakii2982/项目/多智能体编排
+cd "$(git rev-parse --show-toplevel)"
 bash repro/probe-codex.sh
 # 原始产物落在 ${TMPDIR}/mocl-probe/codex/（可用 MOCL_PROBE_OUT 覆盖）
 

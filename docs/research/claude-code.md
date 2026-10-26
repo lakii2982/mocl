@@ -8,7 +8,7 @@
 
 | 角色 | 路径 | 版本 | 证据 |
 |---|---|---|---|
-| Claude Code CLI（**宿主线**，适配器默认不用） | `/Users/lakii2982/.nvm/versions/node/v24.18.1/bin/claude` → `.../@anthropic-ai/claude-code/bin/claude.exe`（Mach-O arm64，274 MB bun 单文件） | **2.1.310** | `claude --version` → `2.1.310 (Claude Code)` `[实测]` |
+| Claude Code CLI（**宿主线**，适配器默认不用） | `~/.nvm/versions/node/v24.18.1/bin/claude` → `.../@anthropic-ai/claude-code/bin/claude.exe`（Mach-O arm64，274 MB bun 单文件） | **2.1.310** | `claude --version` → `2.1.310 (Claude Code)` `[实测]` |
 | **SDK 内置 CLI（适配器基线）** | Agent SDK 平台包 `@anthropic-ai/claude-agent-sdk-darwin-arm64@0.3.263` 内的 `claude`（bun 单文件，~199 MB） | **2.1.263** | 平台包 `manifest.json.version` `[实测]`；C5 `init.claude_code_version=2.1.263` `[实测]` |
 | Agent SDK（DSH bundle 内） | `~/.dsh/profiles/desktop/node_modules/@anthropic-ai/claude-agent-sdk/` | **0.3.263** | 该包 `package.json` `[实测]` |
 | SDK typings | 同目录 `sdk.d.ts` **8804 行** / `sdk-tools.d.ts` **4134 行** | — | `wc -l` `[实测] §10-[1]` |
@@ -215,7 +215,7 @@ return {
 
 ```bash
 # 一键复跑全部证据（幂等、只读、零额度）；退出码 0 = 探测完成
-cd /Users/lakii2982/项目/多智能体编排
+cd "$(git rev-parse --show-toplevel)"
 bash repro/probe-claude.sh
 # 原始产物落在 ${TMPDIR}/mocl-probe/claude/（可用 MOCL_PROBE_OUT 覆盖）
 

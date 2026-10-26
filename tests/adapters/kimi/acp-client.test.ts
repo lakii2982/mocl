@@ -295,12 +295,15 @@ describe("KimiAcpClient 错误分类（§10.2）", () => {
     await expect(pending).rejects.toMatchObject({ code: "session.invalidated" });
   });
 
-  it("-32603 Already in plan mode → session.conflict", async () => {
+  it("-32603 Already in plan mode → session.conflict（hint 点名档位，供幂等判定）", async () => {
     const transport = new FakeTransport();
     const client = makeClient(transport);
     const pending = client.setMode("s1", "plan");
     transport.respondError(transport.lastRequest().id, -32603, "Internal error", { details: "Already in plan mode" });
-    await expect(pending).rejects.toMatchObject({ code: "session.conflict" });
+    await expect(pending).rejects.toMatchObject({
+      code: "session.conflict",
+      details: { hint: "already-in-mode:plan" },
+    });
   });
 
   it("-32601 未知方法 → protocol.unknown-method", async () => {

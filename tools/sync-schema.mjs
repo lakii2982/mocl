@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 /**
- * sync-schema.mjs — 把设计包（只读真源）的 ABI JSON Schema 同步到施工仓。
+ * sync-schema.mjs — 把 ABI 真源 `docs/abi/schema/*.json` 同步到仓库内的运行时副本 `schema/`。
  *
- * 真源：`docs/abi/schema/*.json`（设计包，施工阶段只读）
- * 产物：`./schema/*.json`（随仓库提交，供运行时校验与 validate 使用）
+ * 真源：`docs/abi/schema/*.json`（随仓库提交，唯一真源）
+ * 产物：`./schema/*.json`（逐字节副本，随仓库提交，供运行时校验与 validate 使用）
  *
  * 行为：
  *   - 源目录缺失 → 打印原因并以非零退出（不是「没有变化」）。
  *   - 逐字节比对；不一致则复制，并打印差异摘要（文件、行数、前几处差异行）。
  *   - 已一致则打印 up-to-date；重复执行幂等。
- *   - 源目录内非 *.json 或额外的旧文件：只告警，不删除（避免误删施工产物）。
+ *   - 源目录内非 *.json 或额外的旧文件：只告警，不删除（避免误删产物）。
  *
  * 用法：node tools/sync-schema.mjs [--check]
  *   --check 只检查不写入；有差异时退出码 1（CI 用）。
@@ -20,7 +20,7 @@ import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "..");
-const sourceDir = resolve(repoRoot, "..", "docs", "abi", "schema");
+const sourceDir = resolve(repoRoot, "docs", "abi", "schema");
 const targetDir = resolve(repoRoot, "schema");
 
 const args = new Set(process.argv.slice(2));
@@ -34,7 +34,7 @@ function fail(msg) {
 if (!existsSync(sourceDir)) {
   fail(
     `设计包 schema 目录不存在: ${sourceDir}\n` +
-      "  sync 必须从设计包工作区运行（impl/ 的上级目录需含 docs/abi/schema/）。",
+      "  仓库根必须含 docs/abi/schema/（ABI schema 真源随仓库提交）。",
   );
 }
 
@@ -120,7 +120,7 @@ if (stale.length > 0) {
 }
 
 if (changed === 0) {
-  console.log("[sync-schema] schema up-to-date (byte-identical to design source).");
+  console.log("[sync-schema] schema up-to-date (byte-identical to docs/abi/schema).");
 } else if (checkOnly) {
   console.log(`[sync-schema] check failed: ${changed} file(s) differ from design source.`);
   process.exit(1);

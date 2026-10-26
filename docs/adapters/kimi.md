@@ -1,6 +1,6 @@
 # kimi-code 适配器规格（D5b / kimi）
 
-> **后端**：kimi-code CLI `2.3.1`（`.astra/BRIEF.md:52` 版本基线）。
+> **后端**：kimi-code CLI `2.3.1`（版本基线 版本基线）。
 > **ABI 目标**：`abiVersion = "0.1"`（`docs/abi/abi-v0.md`）。本文件**不定义**任何 ABI 类型；事件名/错误码/能力位/方法名一律引用 `docs/abi/abi-v0.md`（§3 能力位、§6 方法、§7 事件、§8 错误码），本文只给**原生字段 → ABI 字段的映射**与**后端特化行为**。
 > **证据纪律**：每条结论附 `docs/research/kimi.md:<行号>` 或 `repro/probe-kimi.sh §段号`；无证据的写 `TO-VERIFY` 并给补测命令，不臆测。`[推断]` 明确标注。
 > **写域**：仅本文件（与 `docs/adapters/opencode.md`）。DSH 接入属 `docs/integration/*`，不在此展开。
@@ -152,7 +152,7 @@ kimi 有两个可编程面，事件粒度差一个数量级，适配器必须**�
 
 - 握手超时：`initialize` 15s（`probe-kimi.sh §5` 用 20s 上限）；任何 request 默认 30s（ABI §4 要求传输层超时），`session/prompt` 例外用 `maxTurnMs`（§9.3）。
 - 握手期失败**不允许**“先建会话再说”：`capability.missing` / `transport.connect-failed` / `protocol.version-mismatch` 一律 fail fast（ABI §2.2 第 4 步）。
-- `mcpServers` 只注入白名单（BRIEF 安全默认）；用户全局 `~/.kimi-code/mcp.json` 的自动继承**不承诺**（→ `kimi.md:356`）。
+- `mcpServers` 只注入白名单（需求基线 安全默认）；用户全局 `~/.kimi-code/mcp.json` 的自动继承**不承诺**（→ `kimi.md:356`）。
 
 ### 2.3 反向请求处理器：**先注册、fail-closed、绝不挂起**
 
@@ -427,7 +427,7 @@ R3. resume 成功：epoch+1 → session.replay(fromSeq) 补齐 journal 事件 �
 | `agent_thought_chunk` 超出折叠窗口的部分 | 保护父会话（ABI §11.2 `includeReasoning:false`） | `fold.reasoning_dropped` |
 | 重复/迟到的 JSON-RPC 响应 | `protocol.unexpected-response`（ABI §8） | `drop.unexpected_response` |
 
-计数暴露方式：`diagnostic.log{level:"debug", component:"adapter.kimi"}` 周期汇总；**不逐条上报**父会话（BRIEF 硬约束 3）。
+计数暴露方式：`diagnostic.log{level:"debug", component:"adapter.kimi"}` 周期汇总；**不逐条上报**父会话（需求基线 硬约束 3）。
 
 ### 5.4 折叠与限流（token 洪水）
 
@@ -645,7 +645,7 @@ R3. resume 成功：epoch+1 → session.replay(fromSeq) 补齐 journal 事件 �
 ### 12.1 文档闸门
 
 ```bash
-cd /Users/lakii2982/项目/多智能体编排
+cd "$(git rev-parse --show-toplevel)"
 python3 tools/check_docs.py adapters; echo "rc=$?"       # 本文件零 FAIL（其他后端缺失属正常）
 ```
 
@@ -710,7 +710,7 @@ PROBE_LIVE=1 bash repro/probe-kimi.sh; echo "rc=$?"          # 消耗额度
 ### 12.5 一次性复跑入口
 
 ```bash
-cd /Users/lakii2982/项目/多智能体编排
+cd "$(git rev-parse --show-toplevel)"
 python3 tools/check_docs.py adapters; echo "rc=$?"     # 文档闸门
 bash repro/probe-kimi.sh; echo "rc=$?"                 # 探测闸门（只读）
 # 施工 C6 起：pnpm -s test -- kimi   # 契约测试 K1–K10（本文件 §12.3）

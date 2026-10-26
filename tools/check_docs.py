@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""MOCL 文档闸门 —— 设计阶段的可执行验收。
+"""MOCL 文档闸门 —— 公开仓的可执行验收。
 
 用法:
     python3 tools/check_docs.py all
@@ -7,7 +7,7 @@
     python3 tools/check_docs.py --list
 
 退出码 0 = 全部通过；1 = 有失败（逐条打印 FAIL 原因）。
-本脚本只做"是否有证据/结构是否齐全"的机械检查，不做语义评审。
+本脚本只做"是否有证据/结构是否齐全/链接是否可解析"的机械检查，不做语义评审。
 """
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ DOCS = ROOT / "docs"
 
 BACKENDS = ["codex", "kimi", "claude-code", "opencode"]
 
-# 15 个能力维度（矩阵行）—— 与 BRIEF A1 对齐
+# 15 个能力维度（矩阵行）
 CAPABILITIES = [
     "headless",
     "stream",
@@ -92,11 +92,123 @@ class Checker:
             self.failures.append(f"[{rel}] 仍包含 {why}（pattern={pattern!r}）")
 
     # ---------- stages ----------
-    def stage_ledger(self) -> None:
-        self.require_file(".astra/BRIEF.md", 800)
-        self.require_file(".astra/PLAN.md", 800)
-        self.require_file(".astra/LEDGER.md", 200)
-        self.require_file(".astra/CONTEXT-DSH-SEAM.md", 400)
+    def stage_community(self) -> None:
+        """公开仓必备文件与关键元数据。"""
+        license_text = self.require_file("LICENSE", 200)
+        if license_text is not None:
+            self.checks += 1
+            if not license_text.lstrip().startswith("MIT License"):
+                self.failures.append("[LICENSE] 不是 MIT 许可证文本")
+        for rel in [
+            "README.md",
+            "README.zh-CN.md",
+            "CONTRIBUTING.md",
+            "CODE_OF_CONDUCT.md",
+            "SECURITY.md",
+            "CHANGELOG.md",
+            ".gitignore",
+            ".editorconfig",
+            ".nvmrc",
+            "config.example.json",
+            "config.default.json",
+        ]:
+            self.require_file(rel, 2 if rel in {".gitignore", ".editorconfig", ".nvmrc"} else 200)
+        # README 必须是英文主文档：标题行不含中文
+        text = self.require_file("README.md", 800)
+        if text is not None:
+            self.checks += 1
+            first = next((ln for ln in text.splitlines() if ln.startswith("# ")), "")
+            if re.search(r"[\u4e00-\u9fff]", first):
+                self.failures.append("[README.md] 主 README 标题应为英文（中文版在 README.zh-CN.md）")
+        # 配置示例必须是合法 JSON 且不含绝对路径
+        for rel in ["config.example.json", "config.default.json"]:
+            p = ROOT / rel
+            self.checks += 1
+            if not p.is_file():
+                self.failures.append(f"[{rel}] 文件不存在")
+                continue
+            try:
+                data = json.loads(p.read_text(encoding="utf-8"))
+            except Exception as exc:  # noqa: BLE001
+                self.failures.append(f"[{rel}] JSON 解析失败: {exc}")
+                continue
+            if not isinstance(data, dict) or "backends" not in data:
+                self.failures.append(f"[{rel}] 缺少 backends 配置块")
+            if "/Users/" in json.dumps(data, ensure_ascii=False):
+                self.failures.append(f"[{rel}] 含个人绝对路径")
+        # package.json 元数据（公开仓）
+        pkg = ROOT / "package.json"
+        self.checks += 1
+        try:
+            meta = json.loads(pkg.read_text(encoding="utf-8"))
+        except Exception as exc:  # noqa: BLE001
+            self.failures.append(f"[package.json] 解析失败: {exc}")
+            return
+        if not str(meta.get("version", "")).startswith("0.1."):
+            self.failures.append(f"[package.json] version 应为 0.1.x（实际 {meta.get('version')!r}）")
+        if meta.get("license") != "MIT":
+            self.failures.append("[package.json] license 应为 MIT")
+        if not str((meta.get("repository") or {}).get("url", "")).startswith("git+"):
+            self.failures.append("[package.json] 缺少 repository.url（git+https://…）")
+        if meta.get("private") is True:
+            self.failures.append("[package.json] 公开仓不应设置 private: true")
+
+    def stage_secrets(self) -> None:
+        """扫描文档仓内是否误提交凭据（防止调研时把 token 粘进文档）。"""
+        patterns = [
+            (r"sk-[A-Za-z0-9]{16,}", "OpenAI/Anthropic 风格密钥"),
+            (r"ANTHROPIC_AUTH_TOKEN\s*[:=]\s*[\"']?[A-Za-z0-9._-]{16,}", "Anthropic token 赋值"),
+            (r"(?:api[_-]?key|token|secret)\s*[:=]\s*[\"'][A-Za-z0-9._-]{20,}[\"']", "疑似硬编码密钥"),
+            (r"Bearer\s+[A-Za-z0-9._-]{20,}", "Bearer token"),
+        ]
+        skip_dirs = {"node_modules", ".git", "__pycache__"}
+        # 这些文档本身要讨论凭据模式/安全策略，按文件显式豁免（不是整目录跳过）
+        skip_files = {"00-risk-register.md", "01-threat-model.md",
+                      "00-test-plan.md", "01-acceptance.md", "SECURITY.md",
+                      "leak-scan.mjs", "check_docs.py"}
+        for p in ROOT.rglob("*"):
+            if not p.is_file() or p.suffix not in {".md", ".sh", ".py", ".json", ".ts", ".js", ".yml", ".yaml"}:
+                continue
+            if skip_dirs & set(p.parts) or p.name in skip_files:
+                continue
+            try:
+                text = p.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            for pat, why in patterns:
+                for m in re.finditer(pat, text):
+                    self.failures.append(
+                        f"[{p.relative_to(ROOT)}] 疑似凭据（{why}）: {m.group(0)[:12]}…")
+
+    def stage_errcodes(self) -> None:
+        """风险/测试文档只允许出现 error.json 枚举内的错误码。"""
+        err = ROOT / "docs/abi/schema/error.json"
+        self.checks += 1
+        if not err.is_file():
+            self.failures.append("[docs/abi/schema/error.json] 文件不存在或未同步")
+            return
+        codes = set(json.loads(err.read_text(encoding="utf-8"))["properties"]["code"]["enum"])
+        roots = {"transport", "auth", "quota", "protocol", "process", "capability",
+                 "session", "policy", "storage", "limit", "security", "internal", "backend"}
+        banned = {"quota-denied", "session-gone", "bad-cwd", "crashed", "bad-frame",
+                  "unknown-frame", "auth-failed", "needs-human", "service"}
+        for rel in ["docs/risk/00-risk-register.md", "docs/risk/01-threat-model.md",
+                    "docs/test/00-test-plan.md", "docs/test/01-acceptance.md"]:
+            p = ROOT / rel
+            if not p.is_file():
+                continue
+            text = p.read_text(encoding="utf-8", errors="replace")
+            for m in re.finditer(r"`([a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)+)`", text):
+                code = m.group(1)
+                if code.split(".")[0] not in roots:
+                    continue
+                self.checks += 1
+                if code not in codes:
+                    self.failures.append(f"[{rel}] 使用非 ABI 错误码: {code}")
+            for b in banned:
+                self.checks += 1
+                if f"`{b}`" in text:
+                    self.failures.append(f"[{rel}] 残留旧错误码: {b}")
 
     def stage_research(self) -> None:
         for b in ["codex", "claude-code", "kimi", "opencode"]:
@@ -237,81 +349,35 @@ class Checker:
                 self.failures.append(f"[{rel}] 缺少判定结论")
         self.require_file("docs/review/VERIFY-GATE.md", 300)
 
-    def stage_plan(self) -> None:
-        rel = ".astra/PLAN.md"
-        text = self.require_file(rel, 800)
-        if text:
-            slices = re.findall(r"^\|\s*(D\d+|C\d+)\s*\|", text, flags=re.M)
-            self.checks += 1
-            if len(slices) < 15:
-                self.failures.append(f"[{rel}] 切片 {len(slices)} < 15")
-            cmds = re.findall(r"`(?:python3 tools/check_docs\.py|pnpm -s|bash repro/)[^`]*`", text)
-            self.checks += 1
-            if len(cmds) < 10:
-                self.failures.append(f"[{rel}] 可执行验证命令 {len(cmds)} < 10")
-
-    def stage_docs(self) -> None:
-        for rel in ["docs/00-README.md", "HANDOFF.md", ".astra/INTEGRATION.md", ".astra/JOURNAL.md"]:
-            self.require_file(rel, 300)
-
-    def stage_secrets(self) -> None:
-        """扫描仓库内是否误提交凭据（防止调研时把 token 粘进文档）。"""
-        patterns = [
-            (r"sk-[A-Za-z0-9]{16,}", "OpenAI/Anthropic 风格密钥"),
-            (r"ANTHROPIC_AUTH_TOKEN\s*[:=]\s*[\"']?[A-Za-z0-9._-]{16,}", "Anthropic token 赋值"),
-            (r"(?:api[_-]?key|token|secret)\s*[:=]\s*[\"'][A-Za-z0-9._-]{20,}[\"']", "疑似硬编码密钥"),
-            (r"Bearer\s+[A-Za-z0-9._-]{20,}", "Bearer token"),
+    def stage_links(self) -> None:
+        """相对 Markdown 链接必须能解析到仓内文件（锚点/外链跳过）。"""
+        targets = [
+            ROOT / "README.md",
+            ROOT / "README.zh-CN.md",
+            ROOT / "CONTRIBUTING.md",
+            ROOT / "SECURITY.md",
+            ROOT / "CODE_OF_CONDUCT.md",
+            ROOT / "CHANGELOG.md",
         ]
-        skip_dirs = {"node_modules", ".git", "__pycache__"}
-        skip_files = {"BRIEF.md", "PLAN.md", "00-risk-register.md", "01-threat-model.md",
-                      "check_docs.py", "00-test-plan.md", "01-acceptance.md"}
-        for p in ROOT.rglob("*"):
-            if not p.is_file() or p.suffix not in {".md", ".sh", ".py", ".json", ".ts", ".js", ".yml", ".yaml"}:
-                continue
-            if skip_dirs & set(p.parts) or p.name in skip_files:
-                continue
-            try:
-                text = p.read_text(encoding="utf-8", errors="replace")
-            except OSError:
-                continue
-            for pat, why in patterns:
-                self.checks += 1
-                for m in re.finditer(pat, text):
-                    self.failures.append(
-                        f"[{p.relative_to(ROOT)}] 疑似凭据（{why}）: {m.group(0)[:12]}…")
-
-    def stage_errcodes(self) -> None:
-        """风险/测试文档只允许出现 error.json 枚举内的错误码（F6）。"""
-        err = ROOT / "docs/abi/schema/error.json"
-        self.checks += 1
-        if not err.is_file():
-            self.failures.append("[docs/abi/schema/error.json] 文件不存在或未同步")
-            return
-        codes = set(json.loads(err.read_text(encoding="utf-8"))["properties"]["code"]["enum"])
-        roots = {"transport", "auth", "quota", "protocol", "process", "capability",
-                 "session", "policy", "storage", "limit", "security", "internal", "backend"}
-        banned = {"quota-denied", "session-gone", "bad-cwd", "crashed", "bad-frame",
-                  "unknown-frame", "auth-failed", "needs-human", "service"}
-        for rel in ["docs/risk/00-risk-register.md", "docs/risk/01-threat-model.md",
-                    "docs/test/00-test-plan.md", "docs/test/01-acceptance.md"]:
-            p = ROOT / rel
+        targets.extend(sorted(DOCS.rglob("*.md")))
+        link_re = re.compile(r"\[[^\]]*\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
+        for p in targets:
             if not p.is_file():
                 continue
             text = p.read_text(encoding="utf-8", errors="replace")
-            for m in re.finditer(r"`([a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)+)`", text):
-                code = m.group(1)
-                if code.split(".")[0] not in roots:
+            for m in link_re.finditer(text):
+                target = m.group(1)
+                if target.startswith(("http://", "https://", "#", "mailto:")):
+                    continue
+                path_part = target.split("#", 1)[0]
+                if not path_part:
                     continue
                 self.checks += 1
-                if code not in codes:
-                    self.failures.append(f"[{rel}] 使用非 ABI 错误码: {code}")
-            for b in banned:
-                self.checks += 1
-                if f"`{b}`" in text:
-                    self.failures.append(f"[{rel}] 残留旧错误码: {b}")
+                if not (p.parent / path_part).resolve().exists():
+                    self.failures.append(f"[{p.relative_to(ROOT)}] 死链: {target}")
 
     STAGES = {
-        "ledger": stage_ledger,
+        "community": stage_community,
         "secrets": stage_secrets,
         "errcodes": stage_errcodes,
         "research": stage_research,
@@ -321,16 +387,15 @@ class Checker:
         "adapters": stage_adapters,
         "integration": stage_integration,
         "risk": stage_risk,
-        "test": stage_test,
         "threat": stage_risk,  # alias：威胁模型与风险登记册同一闸门
+        "test": stage_test,
         "review": stage_review,
-        "plan": stage_plan,
-        "docs": stage_docs,
+        "links": stage_links,
     }
 
     def run(self, names: list[str]) -> int:
-        order = ["ledger", "secrets", "errcodes", "research", "matrix", "arch", "abi", "adapters",
-                 "integration", "risk", "test", "review", "plan", "docs"]
+        order = ["community", "secrets", "errcodes", "research", "matrix", "arch", "abi",
+                 "adapters", "integration", "risk", "test", "review", "links"]
         targets = order if "all" in names else names
         for name in targets:
             fn = self.STAGES.get(name)

@@ -16,10 +16,10 @@
 | 项 | 值 | 证据 |
 |---|---|---|
 | 版本 | `opencode v2.1.4` | `opencode --version` |
-| 二进制 | `/Users/lakii2982/.opencode/bin/opencode`，214,407,424 B，mtime 显示 `Oct 26 1985`（固定时间戳/可复现构建痕迹） | `ls -l` |
-| 全局配置目录 | `/Users/lakii2982/.config/opencode` | `opencode debug paths` |
+| 二进制 | `~/.opencode/bin/opencode`，214,407,424 B，mtime 显示 `Oct 26 1985`（固定时间戳/可复现构建痕迹） | `ls -l` |
+| 全局配置目录 | `~/.config/opencode` | `opencode debug paths` |
 | 配置文件 | `~/.config/opencode/opencode.jsonc`（本机仅 1 行 `$schema`）、`AGENTS.md`、`agent/*.md`、`service.json` | `debug config` 的 `type:"directory"` 条目 |
-| 数据目录 | `/Users/lakii2982/.local/share/opencode`，DB `.../opencode.db`，日志 `.../log` | `opencode debug paths` |
+| 数据目录 | `~/.local/share/opencode`，DB `.../opencode.db`，日志 `.../log` | `opencode debug paths` |
 | state / cache / tmp | `~/.local/state/opencode`、`~/.cache/opencode`、`/private/var/folders/.../T/opencode` | 同上 |
 | 后台 service | `http://127.0.0.1:49374`（pid 81392，随机端口） | `opencode service status` / `GET /api/info` |
 | Server 鉴权 | **HTTP Basic**，user=`opencode`，password 来自 `OPENCODE_SERVER_PASSWORD` 或 `service.json` | 文档 + 实测（见 §3.7） |
@@ -27,16 +27,16 @@
 
 ```
 $ opencode debug paths
-home       /Users/lakii2982
-data       /Users/lakii2982/.local/share/opencode
-cache      /Users/lakii2982/.cache/opencode
-config     /Users/lakii2982/.config/opencode
-state      /Users/lakii2982/.local/state/opencode
+home       ~
+data       ~/.local/share/opencode
+cache      ~/.cache/opencode
+config     ~/.config/opencode
+state      ~/.local/state/opencode
 tmp        /private/var/folders/f5/.../T/opencode
-bin        /Users/lakii2982/.cache/opencode/bin
-log        /Users/lakii2982/.local/share/opencode/log
-repos      /Users/lakii2982/.local/share/opencode/repos
-db         /Users/lakii2982/.local/share/opencode/opencode.db
+bin        ~/.cache/opencode/bin
+log        ~/.local/share/opencode/log
+repos      ~/.local/share/opencode/repos
+db         ~/.local/share/opencode/opencode.db
 $ opencode service status
 http://127.0.0.1:49374
 $ opencode auth list
@@ -498,7 +498,7 @@ PY
 opencode api GET /openapi.json | head -c 300
 
 # 原生 agent（必须在项目 cwd 下；在 /tmp 下会得到 []）
-cd /Users/lakii2982/项目/多智能体编排 && opencode debug agents | head -40
+cd "$(git rev-parse --show-toplevel)" && opencode debug agents | head -40
 
 # 自定义 agent 定义
 sed -n '1,9p' ~/.config/opencode/agent/mm-explore.md

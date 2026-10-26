@@ -34,7 +34,7 @@
 
 ### T1 凭据泄漏（高）
 - 路径：父进程 env 整体透传；日志/事件把 `ANTHROPIC_AUTH_TOKEN` 打出来；把 settings.json 内容贴进文档或 commit。
-- 对策：env 白名单化（只放 `PATH/HOME/LANG` + 显式配置项）；日志统一脱敏（正则匹配 `sk-*`、`*_TOKEN`、`*_KEY`、长 base64）；文档与提交前跑 `tools/check_secrets.py`；`.gitignore` 排除 `.astra/` 下的临时抓包。
+- 对策：env 白名单化（只放 `PATH/HOME/LANG` + 显式配置项）；日志统一脱敏（正则匹配 `sk-*`、`*_TOKEN`、`*_KEY`、长 base64）；文档与提交前跑 `tools/leak-scan.mjs`；`.gitignore` 排除 本地临时目录 下的临时抓包。
 - 残留风险：产品自身把 token 写进自己的 session 日志（`~/.claude/projects`），兼容层读取时要跳过敏感字段。
 
 ### T2 路径穿越 / 越权写（高）

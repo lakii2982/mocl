@@ -6,7 +6,7 @@
 
 - 版本：**`abiVersion = "0.1"`**（MAJOR.MINOR，见 §2）
 - 状态：design-frozen（本设计阶段冻结；施工阶段只能按 §13 的兼容规则增量演进）
-- 依赖事实基线：`.astra/CONTEXT-DSH-SEAM.md`、`docs/research/{codex,claude-code,kimi,opencode}.md`、`docs/research/capability-matrix.md`
+- 依赖事实基线：`docs/integration/00-dsh-integration.md`、`docs/research/{codex,claude-code,kimi,opencode}.md`、`docs/research/capability-matrix.md`
 - JSON Schema：`docs/abi/schema/{session,event,error,capabilities,request}.json`（§12）
 
 ---
@@ -682,7 +682,7 @@ error
 
 ---
 
-## 11. 父会话增量契约（与 BRIEF 硬约束 3 对齐）
+## 11. 父会话增量契约（与 需求基线 硬约束 3 对齐）
 
 ABI 只冻结「增量对象」与「上限字段」，折叠算法属 L3（`docs/architecture/01-layers.md` §L3），呈现载体属 L4（D6 写域）。
 
@@ -705,7 +705,7 @@ ABI 只冻结「增量对象」与「上限字段」，折叠算法属 L3（`doc
 - `kind ∈ {state, turn, tool, plan, diff, usage, child, error, result}`；`key` 用于跨窗口去重（同 key 后到覆盖先到）。
 - **终态事件不受折叠上限约束**（`turn.completed`/`turn.failed`/`session.state-changed`(终态) 必须单发）。
 
-### 11.2 上限字段（写进 `limits`，默认值即 BRIEF 要求）
+### 11.2 上限字段（写进 `limits`，默认值即 需求基线 要求）
 
 | 字段 | 默认 | 语义 |
 |---|---|---|
@@ -758,7 +758,7 @@ ABI 只冻结「增量对象」与「上限字段」，折叠算法属 L3（`doc
 ### 12.2 自检命令（可复跑，零依赖）
 
 ```bash
-cd /Users/lakii2982/项目/多智能体编排
+cd "$(git rev-parse --show-toplevel)"
 
 # 1) 闸门：文档要素 + schema 可解析 + ≥3 个
 python3 tools/check_docs.py arch abi; echo "rc=$?"

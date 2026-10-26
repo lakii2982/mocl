@@ -1,6 +1,6 @@
 # opencode 适配器规格（D5b / opencode）
 
-> **后端**：opencode `v2.1.4`（`.astra/BRIEF.md:52` 版本基线）。
+> **后端**：opencode `v2.1.4`（版本基线 版本基线）。
 > **ABI 目标**：`abiVersion = "0.1"`（`docs/abi/abi-v0.md`）。本文件**不定义**任何 ABI 类型；事件名/错误码/能力位/方法名一律引用 `docs/abi/abi-v0.md`（§3 能力位、§6 方法、§7 事件、§8 错误码），本文只给**原生字段 → ABI 字段的映射**与**后端特化行为**。
 > **证据状态（2026-10-26 复测修正，D-019）**：凭据**存在**（`~/.local/share/opencode/auth.json` 的 `opencode-go`，key `oc_s…` 51 字符）；**付费套餐 key 已过期**（401 `api_key_expired`，重登不续期），但**内置免费模型池实测完全可用**。因此 opencode **默认 `enabled:true`**；生产默认模型 `opencode-go/deepseek-v4.1-flash`，key 失效时按 `auth.credential-expired` **降级到 `opencode/deepseek-v4.1-flash-free`**，降级必须显式可见（事件 + 结果 `model=free-fallback`），不得静默。
 > **三通道均已本机实测**（`docs/research/opencode.md §3.12`，命令与脱敏 sessionID 见该节）：v2 HttpApi（主通道）、ACP over stdio（兜底）、CLI `run + -s`（最后兜底）。
@@ -238,7 +238,7 @@
 | M6 `session.query` | `GET /api/session/{id}` → `{data:{outcome,tokens,cost,time,…}}`（实测） | 本地账本 + `session/list` | 本地账本 | `outcome ∈ {succeeded,failed,interrupted}` |
 | M7 `session.list` | `GET /api/session?limit/order/search` → `{data:[…],cursor}` | `session/list{cwd}` | `session list`（project 作用域） | Broker 注册表权威（`opencode.md:321`、`:337`） |
 | M8 `session.recover` | 探测 + `GET /api/session/{id}` 对账 + 续 prompt | `session/load` + 对账 | `run -s` + 对账 | §4 |
-| M9 `session.close` | 释放本地 + 取消 SSE 订阅；后端会话保留（显式删除走 `DELETE /api/session/{id}`，默认禁止） | `session/close` + 杀进程组 | 进程自然退出 | 删除是破坏性操作（BRIEF 安全默认） |
+| M9 `session.close` | 释放本地 + 取消 SSE 订阅；后端会话保留（显式删除走 `DELETE /api/session/{id}`，默认禁止） | `session/close` + 杀进程组 | 进程自然退出 | 删除是破坏性操作（需求基线 安全默认） |
 | M10 `session.fork` | `POST .../fork{boundary:{type:"through",messageID}}` | `session/fork` | `run --fork` | 保留原会话与分叉点（`opencode.md:230`） |
 | M11 `session.archive` | 无动作（tombstone） | 无动作 | 无动作 | `sessionArchive=unavailable`（ABI R-10） |
 | M12 `session.respond` | `POST .../permission/{requestID}/reply {"decision":"once\|always\|reject"}` → `204`（实测） | 反向应答（形状 TO-VERIFY） | 无 | 见 §7.2 |
@@ -707,7 +707,7 @@ R3. 首轮若命中 auth.* → 会话 blocked，按 §8.2 降级/告警，不循
 > 免费模型已可端到端（§3.12），下列补测只剩“未触发场景 + 付费 key 回归”。**不代答登录、不打印密钥、不 `auth export`**。
 
 ```bash
-cd /Users/lakii2982/项目/多智能体编排
+cd "$(git rev-parse --show-toplevel)"
 
 # 1) 免费模型基线（零费用；脚本 §11）
 bash repro/probe-opencode.sh; echo "rc=$?"
@@ -781,7 +781,7 @@ PROBE_LIVE=1 bash repro/probe-opencode.sh; echo "rc=$?"
 ### 12.1 文档闸门
 
 ```bash
-cd /Users/lakii2982/项目/多智能体编排
+cd "$(git rev-parse --show-toplevel)"
 python3 tools/check_docs.py research adapters; echo "rc=$?"   # 本文件与调研文档均零 FAIL
 ```
 
@@ -853,7 +853,7 @@ PROBE_PAID=1 bash repro/probe-opencode.sh; echo "rc=$?"          # 可选：付�
 ### 12.5 一次性复跑入口
 
 ```bash
-cd /Users/lakii2982/项目/多智能体编排
+cd "$(git rev-parse --show-toplevel)"
 python3 tools/check_docs.py research adapters; echo "rc=$?"   # 文档闸门
 bash repro/probe-opencode.sh; echo "rc=$?"                    # 探测闸门（只读）
 PROBE_LIVE=1 bash repro/probe-opencode.sh; echo "rc=$?"       # 免费模型 live（零费用）

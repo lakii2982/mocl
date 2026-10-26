@@ -12,7 +12,7 @@
 2. **写操作永不盲目重试**：先对账（查询后端真实状态），再决定补结果或同键重发；只读操作可安全重试。依据：abi-v0 §9、02 §7.2。
 3. **降级必须是声明式的**：运行期不临时发明替代路径；能力缺失按 abi-v0 §3.5 的 R-1..R-19 执行，失败按本节 §4 的阶梯落到明确状态。
 
-## 2. 失败模式表（20 类，含 BRIEF 要求的 12 类）
+## 2. 失败模式表（20 类，含 需求基线 要求的 12 类）
 
 > 列说明：**可重试**取值 `no` / `once` / `backoff` / `after-recovery`；**父级影响**取值见 §6；**用户可见提示**即 ABI `error.userMessage` 的默认文案。
 
@@ -162,7 +162,7 @@ base = 500ms, cap = 30s, maxAttempts = 5（恢复另有窗口 10min）
 | `mocl.leases.conflicts` | counter | > 0 | 双写/fencing 异常 |
 | `mocl.orphans` | gauge | > 0 | 映射损坏/需人工（F20） |
 | `mocl.capabilities{bit,state}` | gauge | 任意必需位 `unavailable` | 接入前检查（F08） |
-| `mocl.parent_progress.chars_per_turn` | histogram | P95 > `maxCharsPerTurn` 的 80% | 父会话预算（BRIEF 硬约束 3） |
+| `mocl.parent_progress.chars_per_turn` | histogram | P95 > `maxCharsPerTurn` 的 80% | 父会话预算（需求基线 硬约束 3） |
 | `mocl.version.mismatch_total` | counter | > 0 | 版本漂移（F11） |
 | `mocl.security.leak_suspected_total` | counter | > 0（立即告警） | 凭据泄漏（F12） |
 

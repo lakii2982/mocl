@@ -9,6 +9,7 @@ import {
   type KimiAdapterOptions,
 } from "../../../src/adapters/kimi/index.ts";
 import { MoclError } from "../../../src/broker/errors.ts";
+import { mapJsonRpcError } from "../../../src/adapters/kimi/errors.ts";
 import { RuntimeConfigError } from "../../../src/broker/concurrency.ts";
 import {
   FakeTransport,
@@ -157,13 +158,20 @@ describe("KimiAdapter 握手与启动守卫（K1/D-003）", () => {
   });
 
   it("default_plan_mode 引发 -32603 时，plan 档幂等通过、yolo 档退到 set_config_option", async () => {
+    // 实测线格式（2026-10-26 复测）：message 是泛化 "Internal error"，点名在 data.details。
+    const alreadyIn = (mode: string): MoclError =>
+      mapJsonRpcError(
+        { code: -32603, message: "Internal error", data: { details: `Already in ${mode} mode` } },
+        { method: "session/set_mode" },
+      );
+
     const planCase = fakeProcessFactory();
     const adapterA = new KimiAdapter({
       transport: "acp",
       runtime: fixedRuntime(4),
       processFactory: (spec) => {
         const handle = planCase.factory(spec);
-        handle.acp.setModeError = new MoclError("session.conflict", { message: "Already in plan mode" });
+        handle.acp.setModeError = alreadyIn("plan");
         return handle;
       },
       configProbe: configProbe("plan"),
@@ -178,13 +186,81 @@ describe("KimiAdapter 握手与启动守卫（K1/D-003）", () => {
       runtime: fixedRuntime(4),
       processFactory: (spec) => {
         const handle = yoloCase.factory(spec);
-        handle.acp.setModeError = new MoclError("session.conflict", { message: "Already in plan mode" });
+        handle.acp.setModeError = alreadyIn("plan");
         return handle;
       },
       configProbe: configProbe("yolo"),
     });
     await adapterB.open({ sessionId: "b", cwd: "/tmp/work", permissionProfile: "yolo", epoch: 0 });
     expect(yoloCase.created[0]?.acp.configOptionCalls).toEqual([{ configId: "mode", value: "yolo" }]);
+    await adapterB.dispose();
+  });
+
+  it("冲突点名请求档位（任意档，不限 plan）→ 幂等成功，不走 set_config_option", async () => {
+    const processes = fakeProcessFactory();
+    const adapter = new KimiAdapter({
+      transport: "acp",
+      runtime: fixedRuntime(4),
+      processFactory: (spec) => {
+        const handle = processes.factory(spec);
+        handle.acp.setModeError = mapJsonRpcError(
+          { code: -32603, message: "Internal error", data: { details: "Already in auto mode" } },
+          { method: "session/set_mode" },
+        );
+        return handle;
+      },
+      configProbe: configProbe("auto"),
+    });
+    await expect(
+      adapter.open({ sessionId: "a", cwd: "/tmp/work", permissionProfile: "safe-auto", epoch: 0 }),
+    ).resolves.toBeDefined();
+    expect(processes.created[0]?.acp.configOptionCalls).toEqual([]);
+    await adapter.dispose();
+  });
+
+  it("set_config_option 通道同形冲突点名请求档位 → 幂等成功；点名其他档位 → 真冲突抛出", async () => {
+    const conflict = (mode: string): MoclError =>
+      mapJsonRpcError(
+        { code: -32603, message: "Internal error", data: { details: `Already in ${mode} mode` } },
+        { method: "session/set_config_option" },
+      );
+
+    // set_mode 点名 plan（真冲突）→ 退到 set_config_option，后者点名请求档位 yolo → 幂等成功。
+    const idempotentCase = fakeProcessFactory();
+    const adapterA = new KimiAdapter({
+      transport: "acp",
+      runtime: fixedRuntime(4),
+      processFactory: (spec) => {
+        const handle = idempotentCase.factory(spec);
+        handle.acp.setModeError = conflict("plan");
+        handle.acp.setConfigOptionError = conflict("yolo");
+        return handle;
+      },
+      configProbe: configProbe("yolo"),
+    });
+    await expect(
+      adapterA.open({ sessionId: "a", cwd: "/tmp/work", permissionProfile: "yolo", epoch: 0 }),
+    ).resolves.toBeDefined();
+    expect(idempotentCase.created[0]?.acp.configOptionCalls).toEqual([{ configId: "mode", value: "yolo" }]);
+    await adapterA.dispose();
+
+    // 两通道都点名其他档位 → 真冲突，open() 失败并杀进程（fail fast，不伪装成功）。
+    const realConflictCase = fakeProcessFactory();
+    const adapterB = new KimiAdapter({
+      transport: "acp",
+      runtime: fixedRuntime(4),
+      processFactory: (spec) => {
+        const handle = realConflictCase.factory(spec);
+        handle.acp.setModeError = conflict("plan");
+        handle.acp.setConfigOptionError = conflict("plan");
+        return handle;
+      },
+      configProbe: configProbe("yolo"),
+    });
+    await expect(
+      adapterB.open({ sessionId: "b", cwd: "/tmp/work", permissionProfile: "yolo", epoch: 0 }),
+    ).rejects.toMatchObject({ code: "session.conflict" });
+    expect(realConflictCase.created[0]?.killSignals).toContain("SIGTERM");
     await adapterB.dispose();
   });
 });

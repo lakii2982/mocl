@@ -603,7 +603,8 @@ export class KimiAdapter implements BackendAdapter {
 
   /**
    * 应用权限档位（§3.2）：
-   * 首选 `session/set_mode`；`-32603 Already in plan mode` 视为已达目标（幂等，不重试）。
+   * 首选 `session/set_mode`；`-32603 Already in <mode> mode` 点名**请求档位** → 已达目标
+   * （幂等，不重试）。点名其他档位才是真冲突 → 走配置项通道（M14 第二条路），同样幂等。
    */
   async #applyPermissionProfile(
     handle: KimiProcessHandle,
@@ -616,17 +617,33 @@ export class KimiAdapter implements BackendAdapter {
     } catch (error) {
       const normalized = toMoclError(error);
       if (normalized.code === "session.conflict") {
-        // 实测：`default_plan_mode=true` 时会话已在 plan 档；请求 plan 即目标达成。
-        if (modeId === "plan") return;
-        // 目标是其他档位但后端说"已在 plan" → 尝试配置项通道（M14 第二条路）。
-        await handle.acp.setConfigOption(state.remoteSessionId, "mode", modeId);
+        // 实测（2026-10-26）：`default_plan_mode=true` 时新会话即 plan 档，set_mode/set_config_option
+        // 请求同档均回 -32603 data.details="Already in plan mode"；跨档切换（plan→auto/default）则成功。
+        if (conflictingModeOf(normalized) === modeId) return;
+        // 点名其他档位（真状态冲突）→ 尝试配置项通道。
+        await this.#setModeViaConfigOption(state, modeId);
         return;
       }
       if (normalized.code === "protocol.unknown-method") {
         // 老版本无 set_mode → 退到 set_config_option。
-        await handle.acp.setConfigOption(state.remoteSessionId, "mode", modeId);
+        await this.#setModeViaConfigOption(state, modeId);
         return;
       }
+      throw normalized;
+    }
+  }
+
+  /** `set_config_option{configId:"mode"}` 通道；同形 `-32603` 冲突点名请求档位 → 幂等成功。 */
+  async #setModeViaConfigOption(state: SessionRuntime, modeId: string): Promise<void> {
+    const handle = state.process;
+    if (handle === null) {
+      throw moclError("session.locked", { message: "kimi process is not running" });
+    }
+    try {
+      await handle.acp.setConfigOption(state.remoteSessionId, "mode", modeId);
+    } catch (error) {
+      const normalized = toMoclError(error);
+      if (normalized.code === "session.conflict" && conflictingModeOf(normalized) === modeId) return;
       throw normalized;
     }
   }
@@ -859,6 +876,17 @@ export function assertAbsoluteCwd(cwd: string): string {
 /** `configOptions` 里 id=model 的 currentValue。 */
 export function modelOfConfigOptions(configOptions: readonly KimiConfigOption[]): string | null {
   return configOptions.find((option) => option.id === "model")?.currentValue ?? null;
+}
+
+/**
+ * 从映射后的 `session.conflict` 读出点名档位（errors.ts 写入 `hint: "already-in-mode:<name>"`）。
+ * null = 后端未点名（或非模式冲突）→ 调用方按真冲突处理。
+ */
+function conflictingModeOf(error: MoclError): string | null {
+  const hint = error.details?.hint;
+  if (typeof hint !== "string") return null;
+  const match = /^already-in-mode:([a-z][a-z-]*)$/.exec(hint);
+  return match === null ? null : match[1]!;
 }
 
 export { acpModeForProfile, cliFallbackAllowed, readKimiConfigProbe };

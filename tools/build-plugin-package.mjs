@@ -9,14 +9,18 @@
  * 之后：dsh plugin --profile desktop remove @mocl/dsh-plugin && dsh plugin --profile desktop add file:$PWD/dist/plugin-package
  */
 import { execFileSync } from "node:child_process";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, "..");
 const out = join(root, "dist", "plugin-package");
-const configPath = process.env.MOCL_CONFIG_PATH ?? join(root, "config.local.json");
+const configPath =
+  process.env.MOCL_CONFIG_PATH ??
+  (existsSync(join(root, "config.local.json"))
+    ? join(root, "config.local.json")
+    : join(root, "config.example.json"));
 
 const versionArgIndex = process.argv.indexOf("--version");
 const stamp = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 12);
@@ -26,7 +30,8 @@ rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
 
 console.log("[build] tsc → dist/plugin-package/src");
-execFileSync("pnpm", ["-s", "exec", "tsc", "-p", "tsconfig.build.json"], { cwd: root, stdio: "inherit" });
+const tscBin = join(root, "node_modules", "typescript", "bin", "tsc");
+execFileSync(process.execPath, [tscBin, "-p", "tsconfig.build.json"], { cwd: root, stdio: "inherit" });
 
 writeFileSync(
   join(out, "package.json"),
@@ -51,7 +56,7 @@ writeFileSync(
 
 writeFileSync(
   join(out, "index.mjs"),
-  "// MOCL 插件入口（编译产物；源码见施工仓 impl/src）\nexport * from './src/plugin/index.js';\n",
+  "// MOCL 插件入口（编译产物；源码见 src/）\nexport * from './src/plugin/index.js';\n",
 );
 
 writeFileSync(

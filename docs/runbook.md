@@ -16,7 +16,7 @@ codex 的协议面随版本漂移，且**本机曾同时存在两份载荷**：
 
 两版差异**不是纯增量**（`thread/rollback` 被删；`ThreadRollbackParams/Response` 消失），
 用旧版的 schema 生成的类型去连新版会静默错位。所以 C4 的握手/事件/计数断言必须在
-**单一基线 0.164.0** 上重跑（`HANDOFF.md` §3.0）。
+**单一基线 0.164.0** 上重跑（`docs/integration/01-config-and-enable.md` §3）。
 
 门禁脚本：`scripts/assert-codex-baseline.mjs`（`pnpm -s baseline:codex`）。
 它**零额度**：只执行 `codex --version` 与 `codex app-server generate-json-schema`，
@@ -35,7 +35,7 @@ codex 的协议面随版本漂移，且**本机曾同时存在两份载荷**：
 不要用「含斜杠的字符串数」——那样会漏掉 `initialize`、`fuzzyFileSearch`、`error`、
 `warning`、`guardianWarning`、`deprecationNotice`、`configWarning`、
 `applyPatchApproval`、`execCommandApproval` 等无斜杠方法，得到 104 / 80 / 8 之类的错数。
-（该口径与 `../repro/probe-codex.sh` §4、`../docs/adapters/codex.md` §12.4 A0 一致。）
+（该口径与 `repro/probe-codex.sh` §4、`docs/adapters/codex.md` §12.4 A0 一致。）
 
 ### 1.2 升级动作
 
@@ -46,8 +46,8 @@ codex 的协议面随版本漂移，且**本机曾同时存在两份载荷**：
 
 1. `scripts/assert-codex-baseline.mjs` 的 `DEFAULTS`（版本前缀 + 三个计数）；
 2. `scripts/upgrade-dsh-codex-payload.mjs` 的 `TARGET` 默认值来自 PATH 上的 `codex`，无需手改，但需确认 PATH 已指向新基线；
-3. `../repro/probe-codex.sh` 的 `EXPECT_VER / EXPECT_CLIENT / EXPECT_NOTIF / EXPECT_REQUEST`；
-4. `../docs/adapters/codex.md` §1.2 协议差异表与 §12.4 A0 的期望值；
+3. `repro/probe-codex.sh` 的 `EXPECT_VER / EXPECT_CLIENT / EXPECT_NOTIF / EXPECT_REQUEST`；
+4. `docs/adapters/codex.md` §1.2 协议差异表与 §12.4 A0 的期望值；
 5. CI：把 `pnpm -s baseline:codex -- --strict-bundle` 设为必过项（升级完成后才可开严格模式）。
 
 ### 1.4 常见故障对照（门禁侧）
@@ -91,7 +91,7 @@ codex 的协议面随版本漂移，且**本机曾同时存在两份载荷**：
 #### 步骤 1 — dry-run 先看完整计划（必做）
 
 ```bash
-cd /Users/lakii2982/项目/多智能体编排/impl
+cd "$(git rev-parse --show-toplevel)"
 pnpm -s upgrade:codex --dry-run
 # 机器可读：pnpm -s upgrade:codex --dry-run | tail -1   （或加 --json）
 ```
@@ -195,7 +195,7 @@ EOF
 # 3) 安装（先退出 DSH！）
 pnpm -C "$P" install --no-frozen-lockfile
 # 4) 复验
-cd /Users/lakii2982/项目/多智能体编排/impl && pnpm -s baseline:codex -- --strict-bundle
+cd "$(git rev-parse --show-toplevel)" && pnpm -s baseline:codex -- --strict-bundle
 # 5) 还原 = 把备份拷回（不要 rm -rf 目录）
 cp /tmp/mocl-codex-bak/package.json /tmp/mocl-codex-bak/pnpm-lock.yaml "$P/"
 ```
@@ -220,7 +220,7 @@ cp /tmp/mocl-codex-bak/package.json /tmp/mocl-codex-bak/pnpm-lock.yaml "$P/"
 ### 3.1 一键有界尝试（8 分钟上限）
 
 ```bash
-cd impl
+cd "$(git rev-parse --show-toplevel)"
 node scripts/assert-dsh-tool.mjs --bootstrap-profile
 ```
 
@@ -250,7 +250,7 @@ RESULT: PASS bootstrap (isolated profile mocl-e2e; live tool execution not asser
 
 ```bash
 rm -rf ~/.dsh/profiles/mocl-e2e
-rm -rf impl/e2e/tmp/plugin-package
+rm -rf e2e/tmp/plugin-package
 ```
 
 | 现象 | 处置 |
@@ -271,7 +271,7 @@ node scripts/assert-dsh-tool.mjs --profile <name>   # 只 dump-config 断言（�
 ### 4.1 离线档（CI 默认，零额度）
 
 ```bash
-cd impl
+cd "$(git rev-parse --show-toplevel)"
 node e2e/pr-scenario.mjs        # 或 pnpm -s e2e
 ```
 
@@ -312,4 +312,4 @@ MOCL_LIVE=1 node e2e/pr-scenario.mjs
 - `skipped:quota`：更换可用凭据/模型后重试；**不要**把 SKIP 当 PASS 写进演示结论；
 - `skipped:host-unavailable`：先手工 `codex exec --sandbox read-only --skip-git-repo-check "只回答 OK"`
   自检；仍挂起则为宿主网络/配额问题；
-- 残留：`rm -rf impl/e2e/tmp/*`；报告在 `impl/e2e/out/report.json`（可保留作证据，不入库）。
+- 残留：`rm -rf e2e/tmp/*`；报告在 `e2e/out/report.json`（可保留作证据，不入库）。
