@@ -42,7 +42,7 @@ jobs:
           persist-credentials: false
 
       - name: 安装 Node.js 24
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "24"
 
