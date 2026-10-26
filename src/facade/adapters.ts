@@ -13,6 +13,7 @@ import { createClaudeCodeAdapter } from "../adapters/claude-code/index.ts";
 import { createCodexAdapter } from "../adapters/codex/index.ts";
 import { KimiAdapter } from "../adapters/kimi/index.ts";
 import { AcpClient, spawnAcpTransport, type AcpApi } from "../adapters/opencode/acp-client.ts";
+import type { AcpSessionUpdateParams } from "../adapters/opencode/types.ts";
 import {
   OpenCodeHttpClient,
   resolveHttpConfig,
@@ -66,13 +67,25 @@ function resolveOpenCodeHttp(config: BackendConfig, deps: BackendAdapterDeps): O
 
 /**
  * opencode ACP 客户端：显式注入优先；否则返回**懒创建**客户端。
- * 真实实现会在首次调用（open）时才 spawn 子进程，装配阶段不产生副作用。
+ *
+ * 关键约束（issue #8 AC-4 / G5 打回 B1）：装配阶段**不得 spawn 子进程**。
+ * `OpenCodeAdapter` 构造器会同步调用 `onUpdate()` 注册事件处理器，因此这里
+ * 先把 handler 缓存；只有真正发起会话操作（open/resume/…）时才创建客户端并
+ * 一次性注册缓存 handler。`terminate()` 在从未创建客户端时是纯 no-op。
  */
-function resolveOpenCodeAcp(config: BackendConfig, deps: BackendAdapterDeps): AcpApi {
-  if (deps.opencodeAcp !== undefined) return deps.opencodeAcp;
-  let client: AcpClient | undefined;
-  const ensure = (): AcpClient => {
-    client ??= new AcpClient({
+class LazyAcpClient implements AcpApi {
+  readonly #config: BackendConfig;
+  #client: AcpClient | undefined;
+  #pendingUpdateHandlers: ((params: AcpSessionUpdateParams) => void)[] = [];
+
+  constructor(config: BackendConfig) {
+    this.#config = config;
+  }
+
+  #ensure(): AcpClient {
+    if (this.#client !== undefined) return this.#client;
+    const config = this.#config;
+    const client = new AcpClient({
       transport: spawnAcpTransport({
         ...(config.binaryPath === null ? {} : { binaryPath: config.binaryPath }),
         cwd: process.cwd(),
@@ -80,21 +93,59 @@ function resolveOpenCodeAcp(config: BackendConfig, deps: BackendAdapterDeps): Ac
       }),
       allowWrite: config.permissionMode !== "read-only",
     });
+    for (const handler of this.#pendingUpdateHandlers) client.onUpdate(handler);
+    this.#pendingUpdateHandlers = [];
+    this.#client = client;
     return client;
-  };
-  return new Proxy({} as AcpApi, {
-    get: (_target, property) => {
-      const method = String(property);
-      return (...args: unknown[]) => {
-        const target = ensure() as unknown as Record<string, (...a: unknown[]) => unknown>;
-        const fn = target[method];
-        if (typeof fn !== "function") {
-          throw new TypeError(`opencode acp client has no method: ${method}`);
-        }
-        return fn.apply(ensure(), args);
-      };
-    },
-  });
+  }
+
+  initialize(clientInfo: Parameters<AcpApi["initialize"]>[0]): ReturnType<AcpApi["initialize"]> {
+    return this.#ensure().initialize(clientInfo);
+  }
+
+  newSession(request: Parameters<AcpApi["newSession"]>[0]): ReturnType<AcpApi["newSession"]> {
+    return this.#ensure().newSession(request);
+  }
+
+  loadSession(request: Parameters<AcpApi["loadSession"]>[0]): ReturnType<AcpApi["loadSession"]> {
+    return this.#ensure().loadSession(request);
+  }
+
+  prompt(sessionId: string, text: string): ReturnType<AcpApi["prompt"]> {
+    return this.#ensure().prompt(sessionId, text);
+  }
+
+  setConfigOption(sessionId: string, configId: string, value: string): ReturnType<AcpApi["setConfigOption"]> {
+    return this.#ensure().setConfigOption(sessionId, configId, value);
+  }
+
+  setMode(sessionId: string, modeId: string): ReturnType<AcpApi["setMode"]> {
+    return this.#ensure().setMode(sessionId, modeId);
+  }
+
+  fork(sessionId: string, cwd: string): ReturnType<AcpApi["fork"]> {
+    return this.#ensure().fork(sessionId, cwd);
+  }
+
+  listSessions(cwd: string): ReturnType<AcpApi["listSessions"]> {
+    return this.#ensure().listSessions(cwd);
+  }
+
+  onUpdate(handler: (params: AcpSessionUpdateParams) => void): void {
+    if (this.#client !== undefined) this.#client.onUpdate(handler);
+    else this.#pendingUpdateHandlers.push(handler);
+  }
+
+  async terminate(): Promise<void> {
+    // Never spawned → nothing to terminate (assembly-only lifecycle).
+    if (this.#client === undefined) return;
+    await this.#client.terminate();
+  }
+}
+
+function resolveOpenCodeAcp(config: BackendConfig, deps: BackendAdapterDeps): AcpApi {
+  if (deps.opencodeAcp !== undefined) return deps.opencodeAcp;
+  return new LazyAcpClient(config);
 }
 
 /** 按 backend 配置创建真实适配器（仅启用后调用）。 */

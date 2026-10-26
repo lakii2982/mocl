@@ -1,3 +1,6 @@
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { AcpApi } from "../../src/adapters/opencode/acp-client.ts";
 import type { OpenCodeHttpApi } from "../../src/adapters/opencode/http-client.ts";
@@ -85,10 +88,26 @@ describe("createBackendAdapter — opencode 客户端注入", () => {
     expect(adapter.backendId).toBe("opencode");
   });
 
-  it("acp 通道：未注入时使用懒客户端，装配阶段不 spawn 子进程", () => {
-    // If assembly spawned `opencode acp`, this test would hang/fail on a clean runner.
-    const adapter = createBackendAdapter("opencode", opencodeConfig("acp"), fixedRuntime(2));
-    expect(adapter.backendId).toBe("opencode");
+  it("acp 通道：装配阶段不 spawn 子进程（记录型假二进制，0 次 spawn）", async () => {
+    // G5 打回 B1：OpenCodeAdapter 构造器会同步 onUpdate()，懒客户端必须只缓存 handler，
+    // 不能在装配阶段 spawn。这里用 OPENCODE_BIN 指向记录型假二进制做行为断言。
+    const dir = mkdtempSync(join(tmpdir(), "mocl-acp-spy-"));
+    const marker = join(dir, "spawned.log");
+    const fakeBin = join(dir, "opencode");
+    writeFileSync(fakeBin, `#!/bin/sh\necho "$@" >> "${marker}"\nexit 0\n`, { mode: 0o755 });
+    const previous = process.env["OPENCODE_BIN"];
+    process.env["OPENCODE_BIN"] = fakeBin;
+    try {
+      const adapter = createBackendAdapter("opencode", opencodeConfig("acp"), fixedRuntime(2));
+      expect(adapter.backendId).toBe("opencode");
+      // Give a wrongly-eager spawn the chance to write the marker.
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      expect(existsSync(marker)).toBe(false);
+    } finally {
+      if (previous === undefined) delete process.env["OPENCODE_BIN"];
+      else process.env["OPENCODE_BIN"] = previous;
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it("其他后端装配不受影响（回归）", () => {
