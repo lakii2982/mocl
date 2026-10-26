@@ -44,7 +44,7 @@ jobs:
         run: node .github/scripts/verify-github-config.mjs --self-test
 
       - name: 安装 pnpm（固定版本，与 pnpm-lock.yaml 一致）
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 11.22.0
 
@@ -93,7 +93,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: 安装 pnpm（固定版本，与 pnpm-lock.yaml 一致）
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 11.22.0
 
