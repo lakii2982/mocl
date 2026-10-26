@@ -48,6 +48,7 @@
 2. `docs/integration/00-dsh-integration.md` §0（路线结论与代价）、§3.1（逐项对比）
 3. 已知限制：官方 GUI 对外部子级只显示**不可打开的叶子**（无状态/进度/用量）；进度用 `mocl_status` 与 journal
 4. 流程与角色（issue → 实现 → 验证 → 评审 → 合并 → 发布）见 `docs/process/`
+5. **不懂开发 / 不想碰 GitHub**：用对话式交付（`docs/process/11-CONVERSATION-MODE.md`）——你只拍板「做不做 / 往哪做 / 验收」，其余（工作流设计、实现、质量保证、合并、发布）由 DSH 自驱动并用人话回报
 
 ## 3. 文档地图（每份一句话职责）
 

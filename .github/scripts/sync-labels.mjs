@@ -40,6 +40,13 @@ export const LABEL_CATEGORIES = {
   "size": { prefix: "size/", color: "ededed" },
 };
 
+/**
+ * 治理类标签：不属于业务六类（type/area/priority/status/agent/size），
+ * 但流程门禁强制要求存在（规则自修改保护 R-10）。
+ * 目前只有 needs-human-review；新增治理标签必须同时更新 docs/process/00 §6 与 05。
+ */
+export const GOVERNANCE_LABELS = new Set(["needs-human-review"]);
+
 /** 读取并解析 labels.yml。 */
 export function loadLabels(file = LABELS_FILE) {
   const text = readFileSync(file, "utf8");
@@ -93,7 +100,11 @@ export function validateLabels(labels) {
       name.startsWith(LABEL_CATEGORIES[key].prefix),
     );
     if (!category) {
-      errors.push(`${name} 不属于任何约定类别（${Object.values(LABEL_CATEGORIES).map((item) => item.prefix).join(" / ")}）`);
+      if (!GOVERNANCE_LABELS.has(name)) {
+        errors.push(
+          `${name} 不属于任何约定类别（${Object.values(LABEL_CATEGORIES).map((item) => item.prefix).join(" / ")}）或治理类标签（${[...GOVERNANCE_LABELS].join(" / ")}）`,
+        );
+      }
     } else {
       counts[category] = (counts[category] ?? 0) + 1;
     }

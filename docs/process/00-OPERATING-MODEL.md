@@ -7,7 +7,7 @@
 
 ## 1. 目标与不变量
 
-1. **用户只做 3 件事**：写 issue（业务场景 + 需求）、在升级点做决策、验收交付。其余全部由 agent 与自动化完成。
+1. **用户只做 3 件事**：提出需求（对话式口述 / issue 式填写）、在升级点做决策、验收交付。其余全部由 agent 与自动化完成。对话式入口见 `11-CONVERSATION-MODE.md`。
 2. **交付定义**：一次合格交付 = 已合并 PR（`gh pr view <n> --json state,mergedAt` 显示 `MERGED`）+ 发布版本（`gh release view vX.Y.Z`）+ 交付报告（issue 评论，模板见 `07-DELIVERY-REPORT.md`）。
 3. **单一真源**：GitHub 仓库是唯一真源；本地只允许存在 gitignored 的运行产物（`.agentspec/`）与 worktree（`.worktrees/`）。
 4. **证据可复跑**：任何"已完成/已通过"必须附「命令 + 退出码 + 原始输出」，协议见 `04-VERIFICATION.md` §1。没有证据的完成陈述按未完成处理。
@@ -32,11 +32,12 @@
 ## 3. 角色 RACI
 
 R = Responsible（执行），A = Accountable（最终负责），C = Consulted（必须征询），I = Informed（知会）。
-`orchestrator` 与 `用户` 是外部参与者，不与 8 个 agent 角色混同。
+`orchestrator` 与 `用户` 是外部参与者，不与 9 个 agent 角色混同。
 
 | 角色 \ Gate | G0 | G1 | G2 | G3 | G4 | G5 | G6 | G7 |
 |---|---|---|---|---|---|---|---|---|
 | product-owner | **R/A** | C | C | I | I | I | I | I |
+| workflow-designer | I | **R** | **R** | C | C | C | I | I |
 | pm | C | **R/A** | C | I | I | I | C | C |
 | architect | I | C | **R/A** | C | C | C | I | I |
 | implementer | I | C | C | **R/A** | C | I | I | I |
@@ -100,6 +101,21 @@ R = Responsible（执行），A = Accountable（最终负责），C = Consulted�
 
 ## 5. 用户只做 3 件事（A10 的操作面）
 
+**默认入口是对话式**（`11-CONVERSATION-MODE.md`）：业务方只在 DSH 对话里说自然语言，
+建 issue、看 PR、合并、发版全部由 DSH 代办；业务方**不需要打开 GitHub**。
+**最小人类参与原则**：人类只拍板「做不做 / 往哪个方向做 / 验收通过与否」（每个需求 ≤2 次）；
+其余技术决策、工作流设计、质量保证由 AI 自驱动并自证（workflow-designer → 独立 verifier/reviewer → CI → 发布后验证）。
+开发者/贡献者可选 issue 式（下表），两种模式共用同一后台 G0–G7。
+
+### 5.0 两种入口
+
+| 模式 | 适用人 | 入口 | 详述 |
+|---|---|---|---|
+| **A 对话式（默认）** | 业务方、不懂开发的决策者 | 直接对 DSH 说需求；拍板与验收也在对话里 | `11-CONVERSATION-MODE.md` |
+| **B issue 式** | 开发者、贡献者、社区 | GitHub issue 表单 + `agent:ready` | 本节下表 + `01-REQUIREMENT-INTAKE.md` |
+
+### 5.1 issue 式（开发者模式，可选）
+
 | # | 用户做什么 | 怎么做 | 用户不做什么 |
 |---|---|---|---|
 | 1 | **写 issue** | GitHub → New issue →「业务需求」表单（`.github/ISSUE_TEMPLATE/requirement.yml`），按 `01-REQUIREMENT-INTAKE.md` §2 填 8 个字段；写完打 `agent:ready` 也可以交给 pm 打 | 不写代码、不写 prompt、不建分支、不选实现方案 |
@@ -124,7 +140,13 @@ R = Responsible（执行），A = Accountable（最终负责），C = Consulted�
 | 读取/打印凭据 | 禁止 | 禁止（env 白名单） | 允许但不入库 |
 | 降低门禁强度 | 禁止（升级 E-06） | 禁止 | 允许 |
 
-**自我修改保护**：`.github/**`（CI/模板/labels/CODEOWNERS）、`agents/**`（角色 prompt）、`docs/process/**`（本手册）三个目录是"规则本身"。对它们的 PR 必须由**人**在 G5 追加批准（`needs-human-review` 标签 + 用户评论「批准」），否则 release-manager 不得合并。原因：agent 改自己的规则等于绕过门禁。
+**自我修改保护**：`.github/**`（CI/模板/labels/CODEOWNERS）、`agents/**`（角色 prompt）、`docs/process/**`（本手册）三个目录是"规则本身"。对它们的 PR 必须有**可机械核查的人工批准记录**，否则 release-manager 不得合并：
+
+1. PR 打 `needs-human-review` 标签（`.github/labels.yml` 必须定义该标签）；
+2. PR 评论必须**逐字引用用户原话**（含日期），并注明批准范围；开发者模式可由用户在 GitHub 上直接评论「批准」；**对话式模式**由 DSH 把用户在会话中的原话转录为评论（可核查、不可改写原意），视为等价记录；
+3. 该流程**不豁免 G5**：reviewer（新上下文）仍须独立复跑并给 `VERDICT: APPROVE`；`needs-human-review` 只解决"人是否同意改规则"，不替代技术评审。
+
+原因：agent 改自己的规则等于绕过门禁；同时 conversation mode 只改变业务方操作 GitHub 的方式，不改变 R-10 与 G5 的独立性。
 
 ## 7. 文件与命令地图
 

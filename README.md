@@ -160,10 +160,12 @@ notes are in:
 ## 6. How work gets delivered: DSH + GitHub + local agents
 
 This repository is also a working reference implementation of an **agent-run
-software delivery process**. The maintainer writes a business requirement as a
-GitHub issue; DSH agents plus a local orchestrator carry it through design,
-implementation, independent verification, review, merge, release and a delivery
-report.
+software delivery process**. The requester either writes a GitHub issue
+(developer mode) or simply describes the requirement in DSH chat — **conversation
+mode, the default for people who do not develop software**. DSH agents plus a
+local orchestrator carry it through design, implementation, independent
+verification, review, merge, release and a delivery report. **In conversation
+mode the requester never opens GitHub, never files an issue and never merges.**
 
 ```text
 user ──issue (requirement form)──► GitHub
@@ -182,15 +184,27 @@ user ──issue (requirement form)──► GitHub
                        delivery report comment on the issue
 ```
 
+- **Conversation mode (default for non-developers)** —
+  [`docs/process/11-CONVERSATION-MODE.md`](docs/process/11-CONVERSATION-MODE.md):
+  describe the requirement in chat; DSH does the issue, the branch, the gates,
+  the independent review, the merge, the release, and reports back in plain
+  language. No GitHub or command-line knowledge required. The design goal is
+  **minimal human involvement**: the human only decides go/no-go and direction;
+  the AI designs the task-specific workflow (`agents/roles/workflow-designer.md`
+  → plan with slices and executable acceptance commands), executes it, and
+  assures quality through independent verification, adversarial review, CI and
+  the release scenario suite.
 - **Process OS** — [`docs/process/00-OPERATING-MODEL.md`](docs/process/00-OPERATING-MODEL.md)
   defines gates G0–G7, the RACI matrix, the label state machine and the human
-  escalation matrix. The other ten documents cover requirement intake,
+  escalation matrix. The other eleven documents cover requirement intake,
   RFC/ADR, implementation, verification, review & merge, release, delivery
   reports, metrics, escalation and the local runtime.
-- **Roles** — [`agents/roles/`](agents/roles/) holds eight six-section prompts
-  (product-owner, pm, architect, implementer, verifier, reviewer,
-  release-manager, scribe) that the runner loads **verbatim** before each
-  execution.
+- **Roles** — [`agents/roles/`](agents/roles/) holds nine six-section prompts
+  (product-owner, pm, architect, workflow-designer, implementer, verifier,
+  reviewer, release-manager, scribe) that the runner loads **verbatim** before
+  each execution. `workflow-designer` is what makes self-driving work: it turns
+  a requirement into a task-specific plan (slices, executable acceptance
+  commands, write scopes, counter-examples, human decision points).
 - **Engine** — [`orchestrator/`](orchestrator/) is a zero-dependency Node CLI
   (`intake | deliver | verify | watch | status`). It creates an isolated git
   worktree per issue, runs the role prompt through `dsh headless`, executes the
@@ -205,8 +219,9 @@ user ──issue (requirement form)──► GitHub
   applies labels, merge policy and branch protection so that the gates are
   enforced by GitHub rather than by convention.
 
-The human only does three things: **write the issue, answer escalation
-questions, accept the delivery**. The single-account mode (GitHub forbids
+The human only does three things: **describe the requirement, answer escalation
+questions, accept the delivery**. In conversation mode all three happen in chat;
+in developer mode the requirement is a GitHub issue. The single-account mode (GitHub forbids
 approving your own PR, and branch protection is unavailable on private
 repositories of free plans) is handled explicitly in
 [`docs/process/05-REVIEW-MERGE.md`](docs/process/05-REVIEW-MERGE.md) §4.
