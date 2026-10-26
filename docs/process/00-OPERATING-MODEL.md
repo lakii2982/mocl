@@ -100,6 +100,19 @@ R = Responsible（执行），A = Accountable（最终负责），C = Consulted�
 
 ## 5. 用户只做 3 件事（A10 的操作面）
 
+**默认入口是对话式**（`11-CONVERSATION-MODE.md`）：业务方只在 DSH 对话里说自然语言，
+建 issue、看 PR、合并、发版全部由 DSH 代办；业务方**不需要打开 GitHub**。
+开发者/贡献者可选 issue 式（下表），两种模式共用同一后台 G0–G7。
+
+### 5.0 两种入口
+
+| 模式 | 适用人 | 入口 | 详述 |
+|---|---|---|---|
+| **A 对话式（默认）** | 业务方、不懂开发的决策者 | 直接对 DSH 说需求；拍板与验收也在对话里 | `11-CONVERSATION-MODE.md` |
+| **B issue 式** | 开发者、贡献者、社区 | GitHub issue 表单 + `agent:ready` | 本节下表 + `01-REQUIREMENT-INTAKE.md` |
+
+### 5.1 issue 式（开发者模式，可选）
+
 | # | 用户做什么 | 怎么做 | 用户不做什么 |
 |---|---|---|---|
 | 1 | **写 issue** | GitHub → New issue →「业务需求」表单（`.github/ISSUE_TEMPLATE/requirement.yml`），按 `01-REQUIREMENT-INTAKE.md` §2 填 8 个字段；写完打 `agent:ready` 也可以交给 pm 打 | 不写代码、不写 prompt、不建分支、不选实现方案 |

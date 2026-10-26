@@ -6,7 +6,7 @@
  *  1) 8 个角色文件存在，且每份含六段：职责 / 输入 / 输出 / 禁止事项 / 完成判据 / 回报格式；
  *     禁止事项 >=3 条、完成判据 >=3 个 checkbox、回报格式含「一句话」；
  *  2) verifier / reviewer 含「新上下文」与「不采信」（独立验证纪律）；
- *  3) docs/process/00..10 共 11 份存在，且各含规定小节关键词；
+ *  3) docs/process/00..11 共 12 份存在，且各含规定小节关键词；
  *  4) G0–G7 全部出现在 00-OPERATING-MODEL.md；
  *  5) orchestrator CLI 契约名 intake/deliver/verify/watch/status 出现在 10 + agents/README.md；
  *  6) G4 门禁 ID（G4-C1..G4-C11）出现在 04-VERIFICATION.md；其引用的仓库内命令文件真实存在；
@@ -213,6 +213,11 @@ const DOCS = [
     ],
     gate: "运行时",
   },
+  {
+    file: "docs/process/11-CONVERSATION-MODE.md",
+    keywords: ["对话", "业务方", "自然语言", "不需要打开 GitHub", "交付报告", "后台", "升级"],
+    gate: "对话式交付",
+  },
 ];
 
 check("docs:process-files", () => {
@@ -239,6 +244,16 @@ check("gates:G0-G7", () => {
 /* ------------------------------------------------------------------ */
 /* 3) CLI 契约与门禁 ID                                                 */
 /* ------------------------------------------------------------------ */
+
+check("process:conversation-mode", () => {
+  const mode = readRequired("docs/process/11-CONVERSATION-MODE.md");
+  mustInclude(mode, ["G0", "G7", "验收通过", "不变量"], "11 对话式模式");
+  const model = readRequired("docs/process/00-OPERATING-MODEL.md");
+  mustInclude(model, ["11-CONVERSATION-MODE.md", "对话式"], "00 引用对话式入口");
+  const intake = readRequired("docs/process/01-REQUIREMENT-INTAKE.md");
+  mustInclude(intake, ["对话录入", "11-CONVERSATION-MODE.md"], "01 对话录入映射");
+  return "11 对话式文档 + 00/01 交叉引用齐全";
+});
 
 check("cli:contract", () => {
   const cli = ["intake", "deliver", "verify", "watch", "status"];
@@ -421,5 +436,5 @@ if (failures.length > 0) {
 }
 
 console.log("[verify-agents] ALL CHECKS PASSED");
-console.log("[verify-agents] 角色六段 / 流程 11 篇 / G0–G7 / CLI intake|deliver|verify|watch|status 一致");
+console.log("[verify-agents] 角色六段 / 流程 12 篇 / G0–G7 / CLI intake|deliver|verify|watch|status 一致");
 process.exit(0);
