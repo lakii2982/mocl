@@ -114,7 +114,22 @@ export function runtimeProviderFromContext(ctx: DshHostContext): RuntimeConfigPr
 
   return {
     read(): { maxActiveSubagents: number } {
-      const fromSettings = readNumber(ctx.settings?.get?.("subagent.maxActiveSubagents"));
+      // cordis：未 inject 的 service 属性访问会抛 "cannot get property ... without inject"，
+      // 因此 settings 分支必须 try/catch；拿不到就继续走 ctx.get()（该方法不受 inject 限制）。
+      let settingsService: { get?: (key: string) => unknown } | undefined;
+      try {
+        settingsService = ctx.settings;
+      } catch {
+        settingsService = undefined;
+      }
+      if (settingsService === undefined) {
+        try {
+          settingsService = ctx.get?.("settings") as { get?: (key: string) => unknown } | undefined;
+        } catch {
+          settingsService = undefined;
+        }
+      }
+      const fromSettings = readNumber(settingsService?.get?.("subagent.maxActiveSubagents"));
       if (fromSettings !== undefined) return { maxActiveSubagents: fromSettings };
 
       let service: unknown;

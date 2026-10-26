@@ -213,6 +213,19 @@ describe("DSH 插件薄壳（subagent_agent / mocl_status）", () => {
     expect(runtimeProviderFromContext(ctx).read()).toEqual({ maxActiveSubagents: 20 });
   });
 
+  it("未 inject settings（属性访问抛 cordis 错误）时回退 ctx.get('subagents')，不中断门面装配", () => {
+    const ctx = {
+      tools: { register: () => () => undefined },
+      get: (name: string) => (name === "subagents" ? { config: { maxActiveSubagents: { get: () => 20 } } } : undefined),
+    } as unknown as DshHostContext;
+    Object.defineProperty(ctx, "settings", {
+      get() {
+        throw new Error('cannot get property "settings" without inject');
+      },
+    });
+    expect(runtimeProviderFromContext(ctx).read()).toEqual({ maxActiveSubagents: 20 });
+  });
+
   it("runtimeProviderFromContext 兼容 SubagentManager.maxActiveSubagents 为函数", () => {
     const ctx: DshHostContext = {
       tools: { register: () => () => undefined },
