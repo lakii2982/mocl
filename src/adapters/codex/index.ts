@@ -1,7 +1,7 @@
 /**
  * codex 适配器（施工 C4）：`BackendAdapter` 的 codex 实现（app-server JSON-RPC，基线 0.164.0）。
  *
- * 设计真源：`../../../../docs/adapters/codex.md`（§1 基线 / §2 握手 / §3 会话 / §4 续接 /
+ * 设计真源：`../../../docs/adapters/codex.md`（§1 基线 / §2 握手 / §3 会话 / §4 续接 /
  * §5 事件映射 / §7 权限 / §9.1 并发运行时派生 / §10 失败降级）。
  *
  * 关键纪律：

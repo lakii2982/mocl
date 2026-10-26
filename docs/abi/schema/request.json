@@ -1,0 +1,412 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mocl.dev/abi/v0/request.json",
+  "title": "MoclRequest",
+  "description": "ABI v0 方法请求信封。顶层约束信封，oneOf 按 method 区分变体；方法清单见 docs/abi/abi-v0.md §6，幂等语义见 §9。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["abiVersion", "requestId", "method", "params"],
+  "properties": {
+    "abiVersion": { "type": "string", "const": "0.1" },
+    "requestId": {
+      "type": "string",
+      "pattern": "^[0-9A-Za-z_-]{8,128}$",
+      "description": "链路级唯一，仅用于日志/响应匹配，不是幂等键。"
+    },
+    "method": {
+      "type": "string",
+      "enum": [
+        "abi.negotiate",
+        "session.create",
+        "session.send",
+        "session.resume",
+        "session.interrupt",
+        "session.query",
+        "session.list",
+        "session.recover",
+        "session.close"
+      ]
+    },
+    "sessionId": {
+      "type": "string",
+      "pattern": "^sess_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "clientRequestId": {
+      "type": "string",
+      "pattern": "^[0-9A-Za-z_-]{8,128}$",
+      "description": "幂等键（写操作必填，作用域见 abi-v0.md §9.1）。"
+    },
+    "epoch": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "调用方已知的 fencing token；过期写操作返回 session.conflict。"
+    },
+    "requiredBits": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/bitName" }
+    },
+    "params": {}
+  },
+  "oneOf": [
+    { "$ref": "#/$defs/onNegotiate" },
+    { "$ref": "#/$defs/onSessionCreate" },
+    { "$ref": "#/$defs/onSessionSend" },
+    { "$ref": "#/$defs/onSessionResume" },
+    { "$ref": "#/$defs/onSessionInterrupt" },
+    { "$ref": "#/$defs/onSessionQuery" },
+    { "$ref": "#/$defs/onSessionList" },
+    { "$ref": "#/$defs/onSessionRecover" },
+    { "$ref": "#/$defs/onSessionClose" }
+  ],
+  "$defs": {
+    "bitName": {
+      "type": "string",
+      "enum": [
+        "headless",
+        "streaming",
+        "resumeSession",
+        "forkSession",
+        "listSessions",
+        "interruptTurn",
+        "nativeSubagents",
+        "toolExtension",
+        "permissionModes",
+        "sandboxModes",
+        "modelRouting",
+        "concurrencyControl",
+        "usageReporting",
+        "structuredProtocol",
+        "versionPinning",
+        "multiTurn",
+        "steerTurn",
+        "inputInbox",
+        "tokenLevelStream",
+        "planUpdates",
+        "diffUpdates",
+        "tokenUsage",
+        "permissionAutoReply",
+        "permissionRequestBridge",
+        "childSessionUpdates",
+        "sessionArchive",
+        "sessionUnarchive",
+        "sessionDelete",
+        "sessionExport",
+        "sessionReseed",
+        "worktreeIsolation",
+        "backgroundRuns",
+        "processKillInterrupt",
+        "handshakeVersion"
+      ]
+    },
+    "inputBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "text"],
+      "properties": {
+        "type": { "type": "string", "enum": ["text", "file", "image"] },
+        "text": { "type": "string" },
+        "path": { "type": "string", "description": "绝对路径；越出允许根目录 → policy.sandbox-violation。" }
+      }
+    },
+    "onNegotiate": {
+      "properties": { "method": { "const": "abi.negotiate" } },
+      "required": ["method"],
+      "allOf": [
+        {
+          "properties": {
+            "params": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["requiredBits"],
+              "properties": {
+                "requiredBits": {
+                  "type": "array",
+                  "items": { "$ref": "#/$defs/bitName" }
+                },
+                "clientInfo": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["name", "version"],
+                  "properties": {
+                    "name": { "type": "string", "maxLength": 64 },
+                    "version": { "type": "string", "maxLength": 32 }
+                  }
+                }
+              }
+            }
+          },
+          "required": ["params"]
+        }
+      ]
+    },
+    "onSessionCreate": {
+      "properties": { "method": { "const": "session.create" } },
+      "required": ["method", "clientRequestId"],
+      "allOf": [
+        {
+          "properties": {
+            "params": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["backendId", "cwd", "permissionProfile"],
+              "properties": {
+                "backendId": {
+                  "type": "string",
+                  "enum": ["codex", "claude-code", "kimi", "opencode"]
+                },
+                "cwd": { "type": "string", "description": "绝对路径。" },
+                "label": { "type": "string", "maxLength": 200 },
+                "parentSessionId": {
+                  "type": "string",
+                  "pattern": "^sess_[0-9A-HJKMNP-TV-Z]{26}$"
+                },
+                "permissionProfile": {
+                  "type": "string",
+                  "enum": ["read-only", "safe-auto", "yolo"]
+                },
+                "model": { "type": ["string", "null"], "maxLength": 128 },
+                "reasoningEffort": { "type": ["string", "null"], "maxLength": 32 },
+                "capabilities": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["requiredBits"],
+                  "properties": {
+                    "requiredBits": {
+                      "type": "array",
+                      "items": { "$ref": "#/$defs/bitName" }
+                    },
+                    "preferredBits": {
+                      "type": "array",
+                      "items": { "$ref": "#/$defs/bitName" }
+                    }
+                  }
+                },
+                "limits": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["maxTurnMs"],
+                  "properties": {
+                    "maxTurnMs": { "type": "integer", "minimum": 1000 },
+                    "maxNestingDepth": { "type": "integer", "minimum": 0 }
+                  }
+                },
+                "firstInput": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["input", "expect"],
+                  "properties": {
+                    "input": {
+                      "type": "array",
+                      "items": { "$ref": "#/$defs/inputBlock" }
+                    },
+                    "expect": { "type": "string", "enum": ["turn", "continue"] }
+                  }
+                }
+              }
+            }
+          },
+          "required": ["params"]
+        }
+      ]
+    },
+    "onSessionSend": {
+      "properties": { "method": { "const": "session.send" } },
+      "required": ["method", "sessionId", "clientRequestId"],
+      "allOf": [
+        {
+          "properties": {
+            "params": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["input", "expect", "delivery"],
+              "properties": {
+                "input": {
+                  "type": "array",
+                  "items": { "$ref": "#/$defs/inputBlock" }
+                },
+                "expect": { "type": "string", "enum": ["turn", "continue"] },
+                "delivery": { "type": "string", "enum": ["caller", "parent"] },
+                "turnLimits": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["maxTurnMs"],
+                  "properties": {
+                    "maxTurnMs": { "type": "integer", "minimum": 1000 },
+                    "maxOutputTokens": { "type": ["integer", "null"], "minimum": 1 }
+                  }
+                },
+                "seedSummary": { "type": ["string", "null"], "maxLength": 4000 }
+              }
+            }
+          },
+          "required": ["params"]
+        }
+      ]
+    },
+    "onSessionResume": {
+      "properties": { "method": { "const": "session.resume" } },
+      "required": ["method", "sessionId", "clientRequestId"],
+      "allOf": [
+        {
+          "properties": {
+            "params": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["backendSessionId", "fromSeq"],
+              "properties": {
+                "backendSessionId": { "type": "string", "maxLength": 256 },
+                "fromSeq": { "type": "integer", "minimum": 0 },
+                "input": {
+                  "type": ["array", "null"],
+                  "items": { "$ref": "#/$defs/inputBlock" }
+                },
+                "expect": { "type": "string", "enum": ["turn", "continue"] }
+              }
+            }
+          },
+          "required": ["params"]
+        }
+      ]
+    },
+    "onSessionInterrupt": {
+      "properties": { "method": { "const": "session.interrupt" } },
+      "required": ["method", "sessionId", "clientRequestId"],
+      "allOf": [
+        {
+          "properties": {
+            "params": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["turnId", "reason"],
+              "properties": {
+                "turnId": {
+                  "type": "string",
+                  "pattern": "^turn_[0-9A-HJKMNP-TV-Z]{26}$"
+                },
+                "reason": {
+                  "type": "string",
+                  "enum": ["user-cancel", "timeout", "budget", "policy"]
+                }
+              }
+            }
+          },
+          "required": ["params"]
+        }
+      ]
+    },
+    "onSessionQuery": {
+      "properties": { "method": { "const": "session.query" } },
+      "required": ["method", "sessionId"],
+      "allOf": [
+        {
+          "properties": {
+            "params": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["includeCapabilities"],
+              "properties": {
+                "includeCapabilities": { "type": "boolean" },
+                "consistentWithSeq": { "type": ["integer", "null"], "minimum": 0 }
+              }
+            }
+          },
+          "required": ["params"]
+        }
+      ]
+    },
+    "onSessionList": {
+      "properties": { "method": { "const": "session.list" } },
+      "required": ["method"],
+      "allOf": [
+        {
+          "properties": {
+            "params": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["limit"],
+              "properties": {
+                "state": {
+                  "type": ["string", "null"],
+                  "enum": [
+                    "created",
+                    "running",
+                    "awaiting-input",
+                    "blocked",
+                    "completed",
+                    "aborted",
+                    "lost",
+                    "recovering",
+                    "archived",
+                    null
+                  ]
+                },
+                "backendId": {
+                  "type": ["string", "null"],
+                  "enum": ["codex", "claude-code", "kimi", "opencode", null]
+                },
+                "parentSessionId": { "type": ["string", "null"], "maxLength": 64 },
+                "limit": { "type": "integer", "minimum": 1, "maximum": 1000 }
+              }
+            }
+          },
+          "required": ["params"]
+        }
+      ]
+    },
+    "onSessionRecover": {
+      "properties": { "method": { "const": "session.recover" } },
+      "required": ["method", "sessionId", "clientRequestId"],
+      "allOf": [
+        {
+          "properties": {
+            "params": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["reason", "strategy"],
+              "properties": {
+                "reason": {
+                  "type": "string",
+                  "enum": [
+                    "lease-expired",
+                    "process-crash",
+                    "broker-restart",
+                    "manual"
+                  ]
+                },
+                "strategy": {
+                  "type": "string",
+                  "enum": ["auto", "resume", "fork", "reseed", "abort"]
+                },
+                "fromSeq": { "type": ["integer", "null"], "minimum": 0 }
+              }
+            }
+          },
+          "required": ["params"]
+        }
+      ]
+    },
+    "onSessionClose": {
+      "properties": { "method": { "const": "session.close" } },
+      "required": ["method", "sessionId", "clientRequestId"],
+      "allOf": [
+        {
+          "properties": {
+            "params": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["reason", "archive"],
+              "properties": {
+                "reason": {
+                  "type": "string",
+                  "enum": ["completed", "failed", "cancelled", "operator"]
+                },
+                "archive": { "type": "boolean" }
+              }
+            }
+          },
+          "required": ["params"]
+        }
+      ]
+    }
+  }
+}

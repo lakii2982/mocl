@@ -1,6 +1,6 @@
 /**
  * claude-code 适配器的失败分类（施工 C5）：一律落到 `src/abi/errors.ts` 的 46 个 ABI 码，
- * 分类表见 `../../../../docs/adapters/claude-code.md` §10.1。
+ * 分类表见 `../../../docs/adapters/claude-code.md` §10.1。
  *
  * 与 codex 适配器同构（L1 不依赖 L2，不 import broker/errors）：本类携带 ABI 码 + 分类 +
  * 可重试性 + 结构化 details，上层可无损投影为 `ErrorRef`。

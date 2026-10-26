@@ -2,7 +2,7 @@
  * claude-code（Agent SDK 0.3.263）适配器的最小 wire 形状（施工 C5）。
  *
  * 真源：`@anthropic-ai/claude-agent-sdk@0.3.263` 的 `sdk.d.ts`（SDK 消息是 39 种判别联合）；
- * 设计映射见 `../../../../docs/adapters/claude-code.md` §2–§5。这里只声明适配器读写的子集，
+ * 设计映射见 `../../../docs/adapters/claude-code.md` §2–§5。这里只声明适配器读写的子集，
  * 未识别消息按 ABI §13.2 忽略并计数（产品原文：消费者应忽略不认识的消息类型）。
  */
 

@@ -1,7 +1,7 @@
 /**
  * claude-code 适配器（施工 C5）：`BackendAdapter` 的 Agent SDK 实现（SDK 0.3.263 / CLI 2.1.310）。
  *
- * 设计真源：`../../../../docs/adapters/claude-code.md`（§2 握手 / §3 会话 / §4 续接 / §5 事件映射 /
+ * 设计真源：`../../../docs/adapters/claude-code.md`（§2 握手 / §3 会话 / §4 续接 / §5 事件映射 /
  * §7 权限 / §9 并发 / §10 失败降级）。
  *
  * 关键纪律：

@@ -2,7 +2,7 @@
  * codex app-server v2 协议的最小 wire 形状（施工 C4）。
  *
  * 真源：`codex app-server generate-json-schema`（基线 0.164.0）导出物；
- * 设计映射见 `../../../../docs/adapters/codex.md` §2–§5。这里只声明适配器实际读写的字段，
+ * 设计映射见 `../../../docs/adapters/codex.md` §2–§5。这里只声明适配器实际读写的字段，
  * 不做全量类型生成（导出物有 668 个 definition，全量映射属后续切片）。
  */
 

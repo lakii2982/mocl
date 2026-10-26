@@ -1,0 +1,232 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mocl.dev/abi/v0/error.json",
+  "title": "MoclError",
+  "description": "ABI v0 错误对象。错误分类树与错误码唯一登记表见 docs/abi/abi-v0.md §8（46 码 / 12 类）；禁止在 details 中放原始 stderr、凭据或 token（SEC-1）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "code",
+    "category",
+    "message",
+    "retryable",
+    "userMessage",
+    "severity"
+  ],
+  "properties": {
+    "code": {
+      "type": "string",
+      "description": "稳定分类码（只增不改）。",
+      "enum": [
+        "transport.connect-failed",
+        "transport.disconnected",
+        "transport.timeout",
+        "transport.frame-invalid",
+        "transport.frame-too-large",
+        "transport.backpressure",
+        "auth.missing-credential",
+        "auth.credential-expired",
+        "auth.credential-rejected",
+        "auth.login-required",
+        "auth.provider-mismatch",
+        "quota.rate-limited",
+        "quota.usage-exhausted",
+        "quota.context-overflow",
+        "protocol.unknown-method",
+        "protocol.invalid-params",
+        "protocol.version-mismatch",
+        "protocol.bad-frame",
+        "protocol.unexpected-response",
+        "process.spawn-failed",
+        "process.crashed",
+        "process.hung",
+        "process.killed",
+        "capability.missing",
+        "capability.unsupported-method",
+        "session.not-found",
+        "session.invalidated",
+        "session.conflict",
+        "session.locked",
+        "session.resume-failed",
+        "session.fork-failed",
+        "session.mapping-corrupt",
+        "session.expired",
+        "policy.permission-denied",
+        "policy.sandbox-violation",
+        "policy.escalation-required",
+        "storage.disk-full",
+        "storage.write-failed",
+        "storage.corrupt",
+        "limit.nesting-exceeded",
+        "limit.concurrency-exceeded",
+        "limit.budget-exceeded",
+        "limit.turn-timeout",
+        "security.credential-leak-suspected",
+        "backend.internal-error",
+        "internal.unexpected"
+      ]
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "transport",
+        "auth",
+        "quota",
+        "protocol",
+        "process",
+        "capability",
+        "session",
+        "policy",
+        "storage",
+        "limit",
+        "security",
+        "internal"
+      ]
+    },
+    "message": {
+      "type": "string",
+      "maxLength": 2000,
+      "description": "面向开发者/日志；可含后端原始错误摘要，但不得含凭据。"
+    },
+    "retryable": {
+      "type": "string",
+      "enum": [
+        "no",
+        "once",
+        "backoff",
+        "after-recovery"
+      ],
+      "description": "no=不可重试；once=最多一次；backoff=指数退避（上限与抖振见 03-failure-modes.md §4）；after-recovery=需先恢复会话。"
+    },
+    "retryAfterMs": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "服务端建议等待（429 Retry-After 优先）。"
+    },
+    "userMessage": {
+      "type": "string",
+      "maxLength": 120,
+      "description": "面向用户的中文提示，任何错误码都必须非空（ABI-T7）。"
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "warning",
+        "error",
+        "fatal"
+      ]
+    },
+    "backend": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "enum": [
+            "codex",
+            "claude-code",
+            "kimi",
+            "opencode"
+          ]
+        },
+        "version": {
+          "type": "string",
+          "maxLength": 64
+        }
+      }
+    },
+    "sessionId": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^sess_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "turnId": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^turn_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "details": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "missingBits": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "headless",
+              "streaming",
+              "resumeSession",
+              "forkSession",
+              "listSessions",
+              "interruptTurn",
+              "nativeSubagents",
+              "toolExtension",
+              "permissionModes",
+              "sandboxModes",
+              "modelRouting",
+              "concurrencyControl",
+              "usageReporting",
+              "structuredProtocol",
+              "versionPinning",
+              "multiTurn",
+              "steerTurn",
+              "inputInbox",
+              "tokenLevelStream",
+              "planUpdates",
+              "diffUpdates",
+              "tokenUsage",
+              "permissionAutoReply",
+              "permissionRequestBridge",
+              "childSessionUpdates",
+              "sessionArchive",
+              "sessionUnarchive",
+              "sessionDelete",
+              "sessionExport",
+              "sessionReseed",
+              "worktreeIsolation",
+              "backgroundRuns",
+              "processKillInterrupt",
+              "handshakeVersion"
+            ]
+          }
+        },
+        "backendCode": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "retryAttempt": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "hint": {
+          "type": "string",
+          "maxLength": 400
+        }
+      }
+    },
+    "traceId": {
+      "type": "string",
+      "maxLength": 64
+    },
+    "cause": {
+      "type": "string",
+      "maxLength": 500,
+      "description": "脱敏后的根因摘要；不得含凭据与完整 stderr。"
+    }
+  }
+}

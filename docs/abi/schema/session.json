@@ -1,0 +1,499 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mocl.dev/abi/v0/session.json",
+  "title": "MoclSession",
+  "description": "ABI v0 会话对象（session.query / session.list 的 result 元素）。状态枚举与 docs/architecture/02-state-machine.md、docs/abi/abi-v0.md §6 保持一致。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "abiVersion",
+    "sessionId",
+    "backend",
+    "state",
+    "activation",
+    "seq",
+    "epoch",
+    "createdAt",
+    "updatedAt",
+    "capabilities",
+    "limits"
+  ],
+  "properties": {
+    "abiVersion": {
+      "$ref": "#/$defs/abiVersion"
+    },
+    "sessionId": {
+      "$ref": "#/$defs/sessionId"
+    },
+    "parentSessionId": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/sessionId"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "rootSessionId": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/sessionId"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "label": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "backend": {
+      "$ref": "#/$defs/backendRef"
+    },
+    "backendSessionId": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 256,
+      "description": "后端原生会话 id；created 阶段可能为 null，running 后回填。"
+    },
+    "remoteIdState": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "bound"
+      ],
+      "description": "D-020：后端会话 id 是否已回填。pending=等待首轮 backfill（例如 kimi CLI 兜底通道首轮前为空）；缺省视为 bound（兼容既有样例）。见 abi-v0.md §6.2。"
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "created",
+        "running",
+        "awaiting-input",
+        "blocked",
+        "completed",
+        "aborted",
+        "lost",
+        "recovering",
+        "archived"
+      ]
+    },
+    "activation": {
+      "type": "string",
+      "enum": [
+        "inactive",
+        "queued",
+        "active",
+        "draining"
+      ],
+      "description": "并发激活态，与生命周期状态正交；详见 02-state-machine.md §2。"
+    },
+    "terminalReason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "delivered",
+        "interrupted",
+        "failed",
+        "invalidated",
+        "budget-exhausted",
+        "policy-denied",
+        "timeout",
+        "operator",
+        null
+      ]
+    },
+    "stateReason": {
+      "type": "string",
+      "maxLength": 160
+    },
+    "seq": {
+      "$ref": "#/$defs/seq"
+    },
+    "epoch": {
+      "$ref": "#/$defs/epoch"
+    },
+    "createdAt": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "updatedAt": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "lastTurnId": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/turnId"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "result": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/resultSummary"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "error": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/errorRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "capabilities": {
+      "type": "array",
+      "description": "能力声明摘要（来自握手 CapabilityDeclaration.bits）。",
+      "items": {
+        "$ref": "#/$defs/capabilityEntry"
+      }
+    },
+    "limits": {
+      "$ref": "#/$defs/limits"
+    },
+    "progress": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/progressStat"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "abiVersion": {
+      "type": "string",
+      "const": "0.1",
+      "description": "ABI 版本，MAJOR.MINOR。"
+    },
+    "sessionId": {
+      "type": "string",
+      "pattern": "^sess_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "turnId": {
+      "type": "string",
+      "pattern": "^turn_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "seq": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "epoch": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$"
+    },
+    "backendRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "enum": [
+            "codex",
+            "claude-code",
+            "kimi",
+            "opencode"
+          ]
+        },
+        "version": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "transport": {
+          "type": "string",
+          "enum": [
+            "acp-stdio",
+            "app-server-jsonrpc",
+            "agent-sdk",
+            "cli-stream-json",
+            "http-api"
+          ]
+        }
+      }
+    },
+    "bitName": {
+      "type": "string",
+      "enum": [
+        "headless",
+        "streaming",
+        "resumeSession",
+        "forkSession",
+        "listSessions",
+        "interruptTurn",
+        "nativeSubagents",
+        "toolExtension",
+        "permissionModes",
+        "sandboxModes",
+        "modelRouting",
+        "concurrencyControl",
+        "usageReporting",
+        "structuredProtocol",
+        "versionPinning",
+        "multiTurn",
+        "steerTurn",
+        "inputInbox",
+        "tokenLevelStream",
+        "planUpdates",
+        "diffUpdates",
+        "tokenUsage",
+        "permissionAutoReply",
+        "permissionRequestBridge",
+        "childSessionUpdates",
+        "sessionArchive",
+        "sessionUnarchive",
+        "sessionDelete",
+        "sessionExport",
+        "sessionReseed",
+        "worktreeIsolation",
+        "backgroundRuns",
+        "processKillInterrupt",
+        "handshakeVersion"
+      ]
+    },
+    "capabilityEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bit",
+        "state"
+      ],
+      "properties": {
+        "bit": {
+          "$ref": "#/$defs/bitName"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "native",
+            "emulated",
+            "unavailable"
+          ]
+        },
+        "detail": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "constraint": {
+          "type": "string",
+          "maxLength": 200
+        }
+      }
+    },
+    "resultSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "delivered",
+            "partial",
+            "none"
+          ]
+        },
+        "summary": {
+          "type": "string",
+          "maxLength": 4000
+        },
+        "artifact": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "completedAt": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/timestamp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "preservedThroughSeq": {
+          "$ref": "#/$defs/seq"
+        }
+      }
+    },
+    "errorRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "category",
+        "message",
+        "retryable",
+        "userMessage",
+        "severity"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9-]*)+$"
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "transport",
+            "auth",
+            "quota",
+            "protocol",
+            "process",
+            "capability",
+            "session",
+            "policy",
+            "storage",
+            "limit",
+            "security",
+            "internal"
+          ]
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "retryable": {
+          "type": "string",
+          "enum": [
+            "no",
+            "once",
+            "backoff",
+            "after-recovery"
+          ]
+        },
+        "retryAfterMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "userMessage": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "warning",
+            "error",
+            "fatal"
+          ]
+        },
+        "traceId": {
+          "type": "string",
+          "maxLength": 64
+        }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maxTurnMs",
+        "idleTimeoutMs",
+        "leaseTtlMs",
+        "heartbeatMs",
+        "maxSessionsPerBackend",
+        "maxConcurrentTurns",
+        "maxNestingDepth",
+        "maxEventBytes",
+        "maxParentProgressItems",
+        "maxParentProgressChars"
+      ],
+      "properties": {
+        "maxTurnMs": {
+          "type": "integer",
+          "minimum": 1000
+        },
+        "idleTimeoutMs": {
+          "type": "integer",
+          "minimum": 1000
+        },
+        "leaseTtlMs": {
+          "type": "integer",
+          "minimum": 1000
+        },
+        "heartbeatMs": {
+          "type": "integer",
+          "minimum": 100
+        },
+        "maxSessionsPerBackend": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maxConcurrentTurns": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maxNestingDepth": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxEventBytes": {
+          "type": "integer",
+          "minimum": 256
+        },
+        "maxParentProgressItems": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maxParentProgressChars": {
+          "type": "integer",
+          "minimum": 64
+        }
+      }
+    },
+    "progressStat": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "emittedItems",
+        "droppedEvents"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "off",
+            "summary",
+            "events"
+          ]
+        },
+        "emittedItems": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "droppedEvents": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

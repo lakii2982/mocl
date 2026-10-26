@@ -1,7 +1,7 @@
 /**
  * codex app-server 传输层（施工 C4）：spawn + JSONL 分帧 + JSON-RPC 关联 + 超时 + 进程组 kill + stderr 环形缓冲。
  *
- * 设计依据：`../../../../docs/adapters/codex.md` §2.2/§2.4/§4（基线 0.164.0，newline-delimited JSON-RPC 2.0）。
+ * 设计依据：`../../../docs/adapters/codex.md` §2.2/§2.4/§4（基线 0.164.0，newline-delimited JSON-RPC 2.0）。
  *
  * 可测性：进程创建通过 `spawn` 注入（默认 `node:child_process.spawn`），因此测试可用假子进程
  * 回放录制帧，**默认不启动真实 codex**（零额度纪律）。

@@ -1,6 +1,6 @@
 /**
  * codex 适配器的失败分类（施工 C4）：一律落到 `src/abi/errors.ts` 的 46 个 ABI 码，
- * 分类表见 `../../../../docs/adapters/codex.md` §10.1。
+ * 分类表见 `../../../docs/adapters/codex.md` §10.1。
  *
  * 为什么不用 `src/broker/errors.ts` 的 `MoclError`：L1 适配器不应依赖 L2（分层约束见
  * `docs/architecture/01-layers.md`）。本类只携带 ABI 码 + 分类 + 可重试性 + 结构化 details，

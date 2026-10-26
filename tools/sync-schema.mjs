@@ -2,7 +2,7 @@
 /**
  * sync-schema.mjs — 把设计包（只读真源）的 ABI JSON Schema 同步到施工仓。
  *
- * 真源：`../docs/abi/schema/*.json`（设计包，施工阶段只读）
+ * 真源：`docs/abi/schema/*.json`（设计包，施工阶段只读）
  * 产物：`./schema/*.json`（随仓库提交，供运行时校验与 validate 使用）
  *
  * 行为：
