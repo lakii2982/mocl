@@ -11,7 +11,7 @@ import type { AdapterEvent } from "../abi/adapter.ts";
 import type { BackendId, ErrorRef, InputBlock, MoclEvent, PermissionProfile, SessionState, UsageRef } from "../abi/types.ts";
 import { Broker } from "../broker/broker.ts";
 import { EventBus } from "../bus/event-bus.ts";
-import { SessionRegistry } from "../broker/session-registry.ts";
+import { SessionRegistry, type SessionRecord } from "../broker/session-registry.ts";
 import type { RuntimeConfigProvider } from "../broker/concurrency.ts";
 import { moclError } from "../broker/errors.ts";
 import {
@@ -92,6 +92,37 @@ export interface StatusOutcome {
     readonly maxCharsPerItem: number;
   };
   readonly configDigest: string;
+  /** W1（issue #18）：任务摘要（open(task) 首行规范化；空/缺失 → "(未命名任务)"）。 */
+  readonly label: string;
+  /** W1：运行时身份与模型投影（数据面单一真相，面板只读、不自算）。 */
+  readonly runtime: RuntimeStatus;
+  /** W1：创建时间（= SessionRecord.createdAt）。 */
+  readonly startedAt: string | null;
+  /** W1：最近事件时间（无事件 = createdAt）。 */
+  readonly lastActivityAt: string | null;
+  /** W1：本次快照时间。 */
+  readonly updatedAt: string | null;
+}
+
+/** W1：`runtime.model` 的来源语义。 */
+export type ModelSource = "reported" | "configured" | "fallback" | "unknown";
+
+/**
+ * W1：实际运行时身份与模型。全部字段必须存在（拿不到写 `null`，不允许
+ * undefined——宿主 lossless-JSON 会整调用失败）。
+ */
+export interface RuntimeStatus {
+  /** 后端原生 agent 名（既有 facade/registry/broker 状态暂无此真相源 → null）。 */
+  readonly agentName: string | null;
+  /** 后端原生会话/线程 id（= backendSessionId；pending 时 null）。 */
+  readonly agentId: string | null;
+  /** 握手 CapabilityDeclaration.backendVersion（SessionRecord.handshake 缓存；无 → null）。 */
+  readonly backendVersion: string | null;
+  /** 握手 CapabilityDeclaration.transport（同上）。 */
+  readonly transport: string | null;
+  /** 实际生效模型（优先后端上报，其次 fallback/配置，末位 null）。 */
+  readonly model: string | null;
+  readonly modelSource: ModelSource;
 }
 
 export interface ListOutcome {
@@ -133,6 +164,33 @@ export interface FacadeOptions {
 
 const CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 
+/** W1：任务摘要截断上限（UTF-16 code unit 数）。 */
+export const TASK_LABEL_MAX_CHARS = 120;
+
+/** W1：空/缺失任务摘要的占位（`label` 类型固定 string，不是 null）。 */
+export const UNNAMED_TASK_LABEL = "(未命名任务)";
+
+/** W1：模型降级类 warning 的 code 前缀（既有唯一实例：opencode D-019 `model.free-fallback`）。 */
+const MODEL_FALLBACK_CODE_PREFIX = "model.";
+
+/** UTF-16 安全截断：截断点落在代理对中间时丢弃高代理，不把 emoji 切成半。 */
+function truncateUtf16Safe(text: string, max: number): string {
+  if (text.length <= max) return text;
+  let end = max;
+  const lastUnit = text.charCodeAt(end - 1);
+  if (lastUnit >= 0xd800 && lastUnit <= 0xdbff) end -= 1;
+  return text.slice(0, end);
+}
+
+/** open(task) → 面板任务摘要：首个非空行、trim、≤120 字符（代理对安全）；空 → "(未命名任务)"。 */
+export function normalizeTaskLabel(task: string): string {
+  if (typeof task !== "string") return UNNAMED_TASK_LABEL;
+  const firstNonEmptyLine = task.split(/\r\n|\r|\n/).find((line) => line.trim().length > 0) ?? "";
+  const trimmed = firstNonEmptyLine.trim();
+  if (trimmed.length === 0) return UNNAMED_TASK_LABEL;
+  return truncateUtf16Safe(trimmed, TASK_LABEL_MAX_CHARS);
+}
+
 function newClientRequestId(): string {
   return `mocl-${randomUUID()}`;
 }
@@ -157,6 +215,10 @@ export class MoclFacade {
   readonly #lastEventType = new Map<string, string>();
   readonly #warnings = new Map<string, string[]>();
   readonly #terminalError = new Map<string, ErrorRef>();
+  // W1（issue #18）：数据面派生缓存（真相源仍是 registry/broker/事件流，这里只投影）。
+  readonly #lastActivityAt = new Map<string, string>();
+  readonly #reportedModel = new Map<string, string>();
+  readonly #modelFallback = new Set<string>();
 
   private constructor(options: FacadeOptions, config: FacadeConfig, adapters: Map<ConfigBackendId, BackendAdapter>) {
     this.#config = config;
@@ -322,6 +384,8 @@ export class MoclFacade {
         cwd,
         model,
         permissionProfile: permissionMode,
+        // W1：任务摘要随 open 落盘进 SessionRecord（恢复后仍可读）。
+        label: normalizeTaskLabel(task),
         idempotencyKey: `${idempotencyKey}:open`,
       });
       const adapter = this.#adapters.get(backend);
@@ -439,13 +503,24 @@ export class MoclFacade {
   }
 
   #statusOutcome(
-    status: { sessionId: string; backend: BackendId; backendSessionId: string; state: SessionState; epoch: number; createdAt: string; lastTurnId: string | null; active: boolean },
+    status: {
+      sessionId: string;
+      backend: BackendId;
+      backendSessionId: string;
+      model: string | null;
+      state: SessionState;
+      epoch: number;
+      createdAt: string;
+      lastTurnId: string | null;
+      active: boolean;
+    },
     fromSeq: number,
   ): StatusOutcome {
     const snapshot = this.#bus.snapshot(status.sessionId, fromSeq);
     const busStats = this.#bus.stats(status.sessionId);
     const backendSessionId = status.backendSessionId === "" ? null : status.backendSessionId;
     const terminal = this.#terminal.get(status.sessionId);
+    const record = this.#broker.registry.get(status.sessionId);
     return {
       childId: status.sessionId,
       backend: status.backend as ConfigBackendId,
@@ -476,6 +551,52 @@ export class MoclFacade {
         maxCharsPerItem: this.#config.global.progress.maxCharsPerItem,
       },
       configDigest: configDigest(this.#config),
+      label: normalizeTaskLabel(record?.label ?? ""),
+      runtime: this.#runtimeStatus(status.sessionId, status.backend, backendSessionId, status.model, record),
+      startedAt: status.createdAt,
+      lastActivityAt: this.#lastActivityAt.get(status.sessionId) ?? status.createdAt,
+      updatedAt: this.#clock().toISOString(),
+    };
+  }
+
+  /**
+   * W1：runtime 投影。`modelSource` 优先级（§1.2 决策表，四情形互斥）：
+   * ① 最近一次 `turn.started.model` 非空 → `reported`；② 发生过模型降级
+   * （`model.*` degrade warning，D-019 `model.free-fallback`）→ `fallback`
+   * （生效模型 = `fallbackModel`，不能谎报为生产配置模型）；③ 配置模型
+   * （会话打开时的 model，其次 `backends.<id>.model`）非空 → `configured`；
+   * ④ 否则 `unknown`。`agentName` 暂无既有真相源 → null（不猜）。
+   */
+  #runtimeStatus(
+    childId: string,
+    backend: BackendId,
+    agentId: string | null,
+    sessionModel: string | null,
+    record: SessionRecord | undefined,
+  ): RuntimeStatus {
+    const backendConfig = this.#config.backends[backend as ConfigBackendId];
+    const reported = this.#reportedModel.get(childId) ?? null;
+    const configured = sessionModel ?? backendConfig.model ?? null;
+    let model: string | null = null;
+    let modelSource: ModelSource = "unknown";
+    if (reported !== null) {
+      model = reported;
+      modelSource = "reported";
+    } else if (this.#modelFallback.has(childId)) {
+      model = backendConfig.fallbackModel ?? null;
+      modelSource = "fallback";
+    } else if (configured !== null) {
+      model = configured;
+      modelSource = "configured";
+    }
+    const handshake = record?.handshake;
+    return {
+      agentName: null,
+      agentId,
+      backendVersion: handshake?.backendVersion ?? null,
+      transport: handshake?.transport ?? null,
+      model,
+      modelSource,
     };
   }
 
@@ -526,6 +647,8 @@ export class MoclFacade {
     } as unknown as MoclEvent;
     this.#bus.ingest(envelope);
     this.#lastEventType.set(childId, event.type);
+    // W1：每次事件刷新最近活动时间（不改折叠语义；无事件时投影回退 createdAt）。
+    this.#lastActivityAt.set(childId, envelope.ts);
     if (event.type === "session.warning") {
       const payload = event.payload as { readonly code?: string; readonly degrade?: boolean };
       if (payload?.degrade === true) this.#degraded.add(childId);
@@ -533,7 +656,13 @@ export class MoclFacade {
         const warnings = this.#warnings.get(childId) ?? [];
         warnings.push(payload.code);
         this.#warnings.set(childId, warnings);
+        // W1：`model.*` 降级 warning（如 D-019 `model.free-fallback`）→ fallback 生效。
+        if (payload.code.startsWith(MODEL_FALLBACK_CODE_PREFIX)) this.#modelFallback.add(childId);
       }
+    }
+    if (event.type === "turn.started") {
+      const payload = event.payload as { readonly model?: unknown };
+      if (typeof payload?.model === "string" && payload.model.length > 0) this.#reportedModel.set(childId, payload.model);
     }
     if (event.type === "usage.updated") {
       const payload = event.payload as { readonly usage?: UsageRef };

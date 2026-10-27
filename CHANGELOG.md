@@ -5,6 +5,31 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **External agent status panel (client UI plugin)**: a right-sidebar tab in the
+  DSH Web GUI that shows every MOCL-managed subagent's task label, actual
+  runtime identity (backend · transport · native id · version), effective model
+  and live state. The panel is a read-only projection of the facade behind
+  `mocl_status` (`GET /mocl-panel/list`), polls every 2 s only while open, and
+  installs/rolls back through `scripts/install-panel.sh` /
+  `scripts/uninstall-panel.sh` without restarting DSH. Design and state table:
+  `docs/design/external-agent-panel/`.
+- `StatusOutcome` now carries `label`, `runtime{agentName,agentId,backendVersion,
+  transport,model,modelSource}`, `startedAt`, `lastActivityAt` and `updatedAt`
+  (additive; older registry records read back as `null`), and `SessionRecord`
+  persists a task label plus the handshake capabilities used by the panel.
+- `POST /mocl-panel/heartbeat` records panel mount/row counts to
+  `<journal.dir>/panel-heartbeat.json` for machine-verifiable acceptance.
+
+### Changed
+
+- The DSH plugin package now ships both halves (`exports["./client"]` plus
+  `dsh.client{platform:"web"}`) and is built by `pnpm build:plugin`, which now
+  also bundles `src/client-ui/**` with esbuild.
+
 ## [0.1.0] - 2026-10-26
 
 First open-source release of MOCL: a compatibility layer that exposes codex,

@@ -66,6 +66,7 @@
 | `docs/integration/00-dsh-integration.md` | 接入路线逐项对比、推荐与触发条件、迁移 |
 | `docs/integration/01-config-and-enable.md` | 配置参考、patch 启用/停用/回滚/残留清理 |
 | `docs/integration/02-ui-data-plane.md` | GUI 数据面：能渲染什么、最小新增、无 UI 时降级 |
+| `docs/design/external-agent-panel/` | 外部子代理状态面板：信息架构 / 13 级状态表 / 可离线打开的原型（只读投影门面） |
 | `docs/risk/00-risk-register.md` | 风险登记册（字段完整、错误码统一 ABI） |
 | `docs/risk/01-threat-model.md` | 威胁模型：凭据 / 路径穿越 / 沙箱 / 提示注入 / 越权写 / 供应链 |
 | `docs/test/00-test-plan.md` | 契约测试 / 录制回放 / 故障注入 / 验收门禁 |

@@ -122,6 +122,22 @@ MOCL 以 DSH 插件形式交付，注册两个工具：
 - `patch/cordis.patch.yml` —— 新增插件行，并停用旧的一次性
   `subagent-codex` / `subagent-claude-code` 工具。
 
+### 外部子代理状态面板
+
+插件同时提供 client 半：右侧栏 **「外部代理」** tab 逐行显示每个 MOCL 子代理
+「在干什么」（任务摘要）、实际运行体（backend · 通道 · 原生 id · 版本）、生效模型与
+实时状态。官方子代理目录把这些外部任务画成**不带执行状态**的叶子条目，这正是本面板
+存在的理由。
+
+面板是 `mocl_status` 背后同一门面的**只读投影**（`GET /mocl-panel/list`），仅在 tab
+打开时 2s 轮询、关闭即停，客户端不自算状态。设计与状态表见
+[`docs/design/external-agent-panel/`](docs/design/external-agent-panel/README.md)。
+
+```bash
+bash scripts/install-panel.sh    # 构建 host + client 半并热替换插件
+bash scripts/uninstall-panel.sh  # 恢复上一版 dist 并热替换回去
+```
+
 启用/回滚步骤、完整配置项与 GUI 数据面说明见：
 
 - [`docs/integration/01-config-and-enable.md`](docs/integration/01-config-and-enable.md)

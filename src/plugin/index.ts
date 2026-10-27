@@ -2,10 +2,11 @@
  * DSH Host 插件（C8）：薄壳。
  *
  * 导出宿主需要的模块形状（同 `@deepseek-ai/dsh-tool-subagent`）：
- * `export { name, inject, apply }`；`apply(ctx, config)` 只做三件事：
+ * `export { name, inject, apply }`；`apply(ctx, config)` 做四件事：
  * 1. 校验宿主上下文（缺 `ctx.tools.register` → fail-closed，不静默降级）；
  * 2. 懒装配门面（`MoclFacade`，配置/运行时并发都在门面内校验）；
- * 3. 注册两个工具：`subagent_agent`（backend 枚举 = 四后端）与 `mocl_status`。
+ * 3. 注册两个工具：`subagent_agent`（backend 枚举 = 四后端）与 `mocl_status`；
+ * 4. 注册 `/mocl-panel` 面板数据路由（W2；best-effort，webServer 不可达只记日志，不影响工具）。
  *
  * 业务逻辑全部在门面（Broker + 适配器）；本文件不得重复路由/会话/幂等逻辑。
  * 宿主 API 基线 DSH 0.2.1-rc.3（见 `dsh-types.d.ts`，升级需复核）。
@@ -14,6 +15,7 @@ import type { ErrorRef, PermissionProfile } from "../abi/types.ts";
 import type { RuntimeConfigProvider } from "../broker/concurrency.ts";
 import { MoclFacade, type OpenOutcome, type StatusOutcome, type ListOutcome, type CloseOutcome, type InterruptOutcome, type ResumeOutcome, type SendOutcome } from "../facade/facade.ts";
 import { moclError, toErrorRef } from "../facade/errors.ts";
+import { registerPanelRoute } from "./panel-route.ts";
 import type {
   DshHostContext,
   DshJsonSchema,
@@ -41,10 +43,12 @@ export interface MoclFacadeLike {
   close(childId: string): Promise<CloseOutcome>;
 }
 
-/** 插件选项：`config` 来自 patch 行；`__facade/__runtimeProvider` 仅测试注入。 */
+/** 插件选项：`config` 来自 patch 行；`__facade/__runtimeProvider/__journalDir` 仅测试注入。 */
 export interface MoclPluginOptions extends DshPluginConfig {
   readonly __facade?: MoclFacadeLike;
   readonly __runtimeProvider?: RuntimeConfigProvider;
+  /** W2：心跳落盘目录覆盖（缺省读 `facade.config.global.journal.dir`）。 */
+  readonly __journalDir?: string;
 }
 
 const JSON_OUTPUT: DshJsonSchema = { type: "object" };
@@ -323,4 +327,12 @@ export function apply(ctx: DshHostContext, options: MoclPluginOptions = {}): voi
   });
   ctx.tools.register(createSubagentAgentTool(ready));
   ctx.tools.register(createMoclStatusTool(ready));
+
+  // W2：/mocl-panel 数据路由（只读门面复用同一个 ready Promise，不新建门面）。
+  // best-effort：webServer 解析/注册失败只记日志并跳过，不拖垮上方工具。
+  registerPanelRoute(ctx, {
+    facade: ready,
+    ...(options.__journalDir === undefined ? {} : { journalDir: options.__journalDir }),
+    ...(ctx.logger === undefined ? {} : { logger: ctx.logger }),
+  });
 }

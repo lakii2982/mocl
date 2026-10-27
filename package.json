@@ -33,6 +33,7 @@
     "assert:dsh-tool:bootstrap": "node scripts/assert-dsh-tool.mjs --bootstrap-profile",
     "baseline:codex": "node scripts/assert-codex-baseline.mjs",
     "build:plugin": "node tools/build-plugin-package.mjs",
+    "client:build": "node tools/build-client.mjs",
     "docs:check": "python3 tools/check_docs.py all",
     "e2e": "node e2e/pr-scenario.mjs",
     "e2e:live": "MOCL_LIVE=1 node e2e/pr-scenario.mjs",
@@ -54,6 +55,7 @@
     "@types/node": "^24.19.2",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
+    "esbuild": "^0.25.0",
     "typescript": "^5.9.3",
     "vitest": "^3.2.7"
   },

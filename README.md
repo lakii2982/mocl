@@ -150,6 +150,26 @@ The repository ships:
 - `patch/cordis.patch.yml` — adds the plugin row and disables the legacy
   one-shot `subagent-codex` / `subagent-claude-code` tools.
 
+### External agent status panel
+
+The plugin also ships a client half: a right-sidebar tab (**外部代理 / External
+agents**) that shows, for every MOCL-managed subagent, what it is doing (task
+label), which agent actually runs it (backend · transport · native id ·
+version), which model is in effect, and its live state. The official subagent
+catalog renders those external tasks as leaves without any execution status,
+which is exactly why this panel exists.
+
+The panel is a read-only projection of the same facade that backs
+`mocl_status` (`GET /mocl-panel/list`); it polls every 2 s only while its tab is
+open and never derives state on the client. Design, state table and a
+standalone prototype live in
+[`docs/design/external-agent-panel/`](docs/design/external-agent-panel/README.md).
+
+```bash
+bash scripts/install-panel.sh    # build host + client halves, then hot-swap the plugin
+bash scripts/uninstall-panel.sh  # restore the previous dist and hot-swap back
+```
+
 Enable/rollback steps, the full configuration reference, and the GUI data-plane
 notes are in:
 

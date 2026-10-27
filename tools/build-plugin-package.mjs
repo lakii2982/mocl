@@ -33,6 +33,13 @@ console.log("[build] tsc → dist/plugin-package/src");
 const tscBin = join(root, "node_modules", "typescript", "bin", "tsc");
 execFileSync(process.execPath, [tscBin, "-p", "tsconfig.build.json"], { cwd: root, stdio: "inherit" });
 
+// W2：client 半（lazy-CJS + client.css）打进来；脚本内自带首行 / node --check / 令牌校验。
+console.log("[build] esbuild client 半 → dist/plugin-package/client.js(+client.css)");
+execFileSync(process.execPath, [join(root, "tools", "build-client.mjs")], { cwd: root, stdio: "inherit" });
+if (!existsSync(join(out, "client.js")) || !existsSync(join(out, "client.css"))) {
+  throw new Error("[build] client 半产物缺失（先 `pnpm -s install` 安装 esbuild，再重试）");
+}
+
 writeFileSync(
   join(out, "package.json"),
   JSON.stringify(
@@ -42,12 +49,19 @@ writeFileSync(
       private: true,
       type: "module",
       main: "index.mjs",
-      description: "MOCL 多智能体编排兼容层（subagent_agent / mocl_status）",
+      // W2：boot graph 以 exports["./client"] 发现 client 半（spike/panel-spike/package.json 同形）。
+      exports: { ".": "./index.mjs", "./client": "./client.js" },
+      description: "MOCL 多智能体编排兼容层（subagent_agent / mocl_status / 外部代理面板）",
       meta: {
         title: "MOCL 多智能体编排",
-        description: "在 DSH 内编排 codex / claude-code / kimi / opencode 外部编码子代理：subagent_agent 启动、mocl_status 查状态。",
+        description: "在 DSH 内编排 codex / claude-code / kimi / opencode 外部编码子代理：subagent_agent 启动、mocl_status 查状态、右侧栏「外部代理」面板。",
       },
-      dsh: { bundle: { patch: "./cordis.patch.yml" } },
+      dsh: {
+        bundle: { patch: "./cordis.patch.yml" },
+        // W2 §0.2/§0.5：非基线包必须在 dsh.client.inject 声明（boot graph 已实测解析该包）。
+        client: { platform: "web", inject: ["@deepseek-ai/dsh-client-ui-sidebar-right"] },
+      },
+      files: ["index.mjs", "client.js", "client.css", "cordis.patch.yml", "src"],
     },
     null,
     2,
