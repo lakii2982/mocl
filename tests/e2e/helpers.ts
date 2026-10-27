@@ -20,11 +20,14 @@ export class EventQueue {
   #items: AdapterEvent[] = [];
   #waiters: ((result: IteratorResult<AdapterEvent>) => void)[] = [];
   #closed = false;
-  push(event: AdapterEvent): void {
-    if (this.#closed) return;
-    const waiter = this.#waiters.shift();
-    if (waiter !== undefined) waiter({ value: event, done: false });
-    else this.#items.push(event);
+  /** 可变参：按给定顺序逐个入队/唤醒（有 waiter 先唤醒，否则缓冲），关闭后静默丢弃。 */
+  push(...events: AdapterEvent[]): void {
+    for (const event of events) {
+      if (this.#closed) return;
+      const waiter = this.#waiters.shift();
+      if (waiter !== undefined) waiter({ value: event, done: false });
+      else this.#items.push(event);
+    }
   }
   close(): void {
     if (this.#closed) return;

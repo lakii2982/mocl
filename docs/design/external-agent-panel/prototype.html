@@ -1,0 +1,692 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>外部代理状态面板 v1 · 离线原型</title>
+  <link rel="stylesheet" href="inputs/dsh-official-tokens.css">
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-width: 320px; height: 100%; }
+    body {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      background-color: var(--dsw-alias-bg-base);
+      color: var(--dsw-alias-label-primary);
+      font: var(--dsw-font-markdown-base);
+    }
+    body[data-ds-dark-theme] { color-scheme: dark; }
+    button { font: inherit; }
+    button, [role="button"] { -webkit-tap-highlight-color: currentColor; }
+    button:focus-visible, [tabindex]:focus-visible {
+      outline-color: var(--dsw-alias-state-business-primary);
+      outline-width: var(--dsw-focus-ring-width);
+      outline-style: solid;
+      outline-offset: 2px;
+    }
+    .demo-controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--dsw-alias-border-l2);
+      background-color: var(--dsw-specific-sidebar-fill);
+    }
+    .demo-title { margin-right: 4px; font: var(--dsw-font-xxs-strong-12); }
+    .control-group { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+    .control-label { color: var(--dsw-alias-label-secondary); font: var(--dsw-font-xxs-12); }
+    .demo-button, .retry-button, .copy-button {
+      min-height: 28px;
+      padding: 3px 8px;
+      border: 1px solid var(--dsw-alias-border-l3);
+      border-radius: var(--dsw-radius-xs);
+      background-color: var(--dsw-alias-button-ghost-active-fill);
+      color: var(--dsw-alias-label-primary);
+      cursor: pointer;
+      font: var(--dsw-font-xxs-12);
+      transition: background-color var(--ds-transition-duration-fast) var(--ds-ease-in-out), color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
+    }
+    .demo-button:hover, .retry-button:hover, .copy-button:hover { background-color: var(--dsw-alias-button-ghost-active-hover); }
+    .demo-button[aria-pressed="true"] {
+      border-color: var(--dsw-alias-state-business-primary);
+      background-color: var(--dsw-alias-interactive-bg-active);
+    }
+    .demo-shell {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) clamp(320px, 38vw, 560px);
+      min-height: 0;
+    }
+    .demo-conversation {
+      padding: 24px;
+      overflow: hidden;
+      background-color: var(--dsw-alias-bg-base);
+      color: var(--dsw-alias-label-secondary);
+    }
+    .demo-conversation p { max-width: 560px; margin: 0 0 12px; }
+    .right-dock {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      min-width: 0;
+      min-height: 0;
+      border-left: 1px solid var(--dsw-alias-border-l2);
+      background-color: var(--dsw-alias-bg-base);
+    }
+    .tab-strip {
+      display: flex;
+      align-items: center;
+      min-height: 40px;
+      padding: 4px 8px;
+      border-bottom: 1px solid var(--dsw-alias-border-l2);
+      background-color: var(--dsw-specific-sidebar-fill);
+    }
+    .tab-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      min-height: 28px;
+      padding: 3px 8px;
+      border-radius: var(--dsw-radius-sm);
+      background-color: var(--dsw-specific-sidebar-nav-item-active);
+      color: var(--dsw-alias-label-primary);
+      font: var(--dsw-font-xxs-strong-12);
+    }
+    .tab-close { color: var(--dsw-alias-label-secondary); font: var(--dsw-font-xxs-12); }
+    .agent-panel {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      min-width: 0;
+      min-height: 0;
+      background-color: var(--dsw-alias-bg-base);
+    }
+    .summary-bar {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      min-height: 44px;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--dsw-alias-border-l2);
+      background-color: var(--dsw-alias-bg-base);
+      font: var(--dsw-font-xxs-12);
+    }
+    .count-group { display: flex; flex: 0 0 auto; gap: 6px; white-space: nowrap; }
+    .count { color: var(--dsw-alias-label-secondary); }
+    .count strong { color: var(--dsw-alias-label-primary); font: var(--dsw-font-xxs-strong-12); }
+    .sync-status {
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow: hidden;
+      color: var(--dsw-alias-label-secondary);
+      text-align: right;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .summary-retry {
+      display: inline-grid;
+      flex: 0 0 28px;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      padding: 4px;
+      border: 1px solid var(--dsw-alias-border-l3);
+      border-radius: var(--dsw-radius-xs);
+      background-color: var(--dsw-alias-button-ghost-active-fill);
+      color: var(--dsw-alias-label-primary);
+      cursor: pointer;
+    }
+    .summary-retry:hover { background-color: var(--dsw-alias-button-ghost-active-hover); }
+    .summary-skeleton { display: inline-block; width: 42px; height: 12px; border-radius: var(--dsw-radius-xs); background-color: var(--dsw-alias-bg-skeleton); }
+    .panel-scrollport { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+    .agent-list { min-width: 0; }
+    .agent-item { min-width: 0; border-bottom: 1px solid var(--dsw-alias-border-l2); }
+    .agent-row {
+      display: grid;
+      grid-template-columns: 76px minmax(0, 1fr) 52px;
+      gap: 8px;
+      align-items: center;
+      width: 100%;
+      min-height: 52px;
+      margin: 0;
+      padding: 4px 12px;
+      border: 0;
+      border-radius: var(--dsw-radius-xs);
+      background-color: var(--dsw-alias-bg-base);
+      color: var(--dsw-alias-label-primary);
+      text-align: left;
+      cursor: pointer;
+      transition: background-color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
+    }
+    .agent-row:hover { background-color: var(--dsw-alias-interactive-bg-hover); }
+    .agent-row[aria-expanded="true"] { background-color: var(--dsw-alias-interactive-bg-active); }
+    .status-column { display: flex; min-width: 0; flex-direction: column; justify-content: center; gap: 2px; }
+    .status-primary { display: flex; align-items: center; gap: 2px; min-width: 0; white-space: nowrap; font: var(--dsw-font-xxs-strong-12); }
+    .status-dot { flex: 0 0 8px; width: 8px; height: 8px; border-radius: var(--dsw-radius-xs); background-color: currentColor; }
+    .status-icon { flex: 0 0 14px; width: 14px; height: 14px; }
+    .status-secondary { padding-left: 26px; color: var(--dsw-alias-label-secondary); font: var(--dsw-font-xxs-12); white-space: nowrap; }
+    .status-running, .status-queued, .status-recovering { color: var(--dsw-static-deepseek-600); }
+    .status-waiting, .status-blocked, .model-mark { color: var(--dsw-static-amber-900); }
+    .status-completed { color: var(--dsw-static-green-900); }
+    .status-failed, .status-lost { color: var(--dsw-static-red-900); }
+    .status-created, .status-aborted, .status-archived { color: var(--dsw-static-neutral-bluish-700); }
+    .status-unknown { color: var(--dsw-alias-label-secondary); }
+    body[data-ds-dark-theme] .status-running,
+    body[data-ds-dark-theme] .status-queued,
+    body[data-ds-dark-theme] .status-recovering { color: var(--dsw-alias-state-business-primary); }
+    body[data-ds-dark-theme] .status-waiting,
+    body[data-ds-dark-theme] .status-blocked,
+    body[data-ds-dark-theme] .model-mark { color: var(--dsw-static-amber-400); }
+    body[data-ds-dark-theme] .status-completed { color: var(--dsw-static-green-400); }
+    body[data-ds-dark-theme] .status-failed,
+    body[data-ds-dark-theme] .status-lost { color: var(--dsw-static-red-400); }
+    body[data-ds-dark-theme] .status-created,
+    body[data-ds-dark-theme] .status-aborted,
+    body[data-ds-dark-theme] .status-archived { color: var(--dsw-static-neutral-bluish-300); }
+    .task-column { display: flex; min-width: 0; flex-direction: column; }
+    .task-label {
+      min-width: 0;
+      overflow: hidden;
+      color: var(--dsw-alias-label-primary);
+      font: var(--dsw-font-markdown-base-strong);
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .runtime-line { display: flex; min-width: 0; align-items: center; gap: 6px; color: var(--dsw-alias-label-secondary); font: var(--dsw-font-xxs-12); }
+    .runtime, .model { min-width: 0; overflow: hidden; white-space: nowrap; }
+    .runtime { flex: 1 1 0; }
+    .model { display: flex; flex: 0 0 auto; max-width: 65%; text-align: right; }
+    .runtime-text, .model-name, .model-note { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .runtime-text { display: block; }
+    .model-name { flex: 0 0 auto; max-width: 100%; }
+    .model-note { flex: 0 1 auto; }
+    .timing-column { display: flex; flex-direction: column; gap: 2px; color: var(--dsw-alias-label-secondary); text-align: right; white-space: nowrap; font: var(--dsw-font-xxs-12); }
+    .duration { color: var(--dsw-alias-label-primary); font: var(--dsw-font-xxs-strong-12); }
+    .backend-notice {
+      grid-column: 1 / -1;
+      padding-top: 4px;
+      color: var(--dsw-static-neutral-bluish-700);
+      font: var(--dsw-font-xxs-12);
+      white-space: normal;
+    }
+    body[data-ds-dark-theme] .backend-notice { color: var(--dsw-static-neutral-bluish-300); }
+    .expanded-details {
+      padding: 12px;
+      border-top: 1px solid var(--dsw-alias-border-l2);
+      background-color: var(--dsw-alias-markdown-code-block);
+    }
+    .expanded-details[hidden] { display: none; }
+    .detail-list { display: grid; gap: 8px; margin: 0; }
+    .detail-pair { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 8px; align-items: start; }
+    .detail-pair dt { color: var(--dsw-alias-label-secondary); font: var(--dsw-font-xxs-12); }
+    .detail-pair dd { min-width: 0; margin: 0; overflow-wrap: anywhere; font: var(--dsw-font-xxs-12); }
+    .code { font-family: var(--ds-font-family-code); }
+    .copy-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    .copy-button { flex: 0 0 auto; min-height: 28px; }
+    .error-block {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+      padding: 12px;
+      border: 1px solid var(--dsw-alias-border-l2);
+      border-radius: var(--dsw-radius-sm);
+      background-color: var(--dsw-alias-code-diff-deleted);
+    }
+    .error-title { margin: 0; color: var(--dsw-static-red-900); font: var(--dsw-font-xxs-strong-12); }
+    body[data-ds-dark-theme] .error-title { color: var(--dsw-static-red-400); }
+    .state-view { display: grid; place-items: center; min-height: 100%; padding: 24px; text-align: center; }
+    .state-view-inner { display: grid; justify-items: center; gap: 12px; max-width: 360px; }
+    .state-title { margin: 0; color: var(--dsw-alias-label-primary); font: var(--dsw-font-markdown-base-strong); }
+    .state-description { margin: 0; color: var(--dsw-alias-label-secondary); font: var(--dsw-font-markdown-base); }
+    .error-code { color: var(--dsw-alias-label-secondary); font: var(--dsw-font-xxs-12); overflow-wrap: anywhere; }
+    .retry-button { display: inline-flex; align-items: center; gap: 6px; }
+    .loading-view { width: 100%; }
+    .skeleton-row {
+      display: grid;
+      grid-template-columns: 76px minmax(0, 1fr) 52px;
+      gap: 8px;
+      align-items: center;
+      min-height: 52px;
+      padding: 4px 12px;
+      border-bottom: 1px solid var(--dsw-alias-border-l2);
+    }
+    .skeleton-stack { display: grid; gap: 8px; }
+    .skeleton-block { display: block; height: 12px; border-radius: var(--dsw-radius-xs); background-color: var(--dsw-alias-bg-skeleton); }
+    .skeleton-status { width: 52px; }
+    .skeleton-label { width: 84%; }
+    .skeleton-meta { width: 64%; }
+    .skeleton-time { width: 40px; justify-self: end; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+    @media (max-width: 767px) {
+      .demo-shell { grid-template-columns: minmax(0, 1fr); }
+      .demo-conversation { display: none; }
+      .right-dock { width: 100%; border-left: 0; }
+      .demo-controls { padding: 8px 12px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation: none !important;
+        transition: none !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="demo-controls" aria-label="原型演示控制，非面板 UI">
+    <span class="demo-title">原型演示 · 非面板 UI</span>
+    <div class="control-group" aria-label="四种页面态">
+      <span class="control-label">页面态</span>
+      <button class="demo-button" type="button" data-page-state="loading" aria-pressed="false">加载中</button>
+      <button class="demo-button" type="button" data-page-state="empty" aria-pressed="false">空态</button>
+      <button class="demo-button" type="button" data-page-state="error" aria-pressed="false">错误态</button>
+      <button class="demo-button" type="button" data-page-state="normal" aria-pressed="true">正常态</button>
+    </div>
+    <div class="control-group" aria-label="数据演示">
+      <span class="control-label">数据</span>
+      <button class="demo-button" type="button" data-scenario="standard" aria-pressed="true">标准 5 行</button>
+      <button class="demo-button" type="button" data-scenario="long" aria-pressed="false">长文本</button>
+      <button class="demo-button" type="button" data-scenario="twenty" aria-pressed="false">20 行滚动</button>
+    </div>
+    <button class="demo-button" id="theme-toggle" type="button" aria-pressed="false" title="切换明暗主题">切换暗色</button>
+  </div>
+
+  <main class="demo-shell">
+    <section class="demo-conversation" aria-label="会话占位列">
+      <p>这里是会话内容占位列，不属于外部代理面板。</p>
+      <p>常规视口下，右侧栏宽度为 320–560px；将视口缩到 768px 以下，同一面板会切换为 fullscreen。</p>
+      <p>点击代理行可展开详情。键盘使用 ↑/↓ 移动，Enter 展开，Esc 收起。所有数据均为静态演示。</p>
+    </section>
+    <aside class="right-dock" aria-label="右侧栏演示">
+      <div class="tab-strip" aria-label="宿主 tab strip">
+        <span class="tab-chip">外部代理 <span class="tab-close" aria-hidden="true">×</span></span>
+      </div>
+      <section class="agent-panel" aria-label="外部代理运行状态">
+        <div class="summary-bar" id="summary-bar"></div>
+        <div class="panel-scrollport" id="panel-scrollport"></div>
+      </section>
+    </aside>
+  </main>
+
+  <script>
+    const demoRows = [
+      {
+        label: '评审 PR#14 的 diff', state: 'running', activation: 'active', turn: { state: 'running' },
+        backend: 'claude-code', channel: 'agent-sdk', childId: '95d9ebac-74c1-4db2-9f31-4a1f2b830f21', version: 'v2.1.310',
+        model: 'deepseek-v4.1-flash ≈配置值', duration: '01:23', lastActivity: '12s 前',
+        cwd: '/Users/.../mocl/.worktrees/issue-18', depth: 1, epoch: 7, turnId: 'turn-20261027-001', error: null
+      },
+      {
+        label: '执行 schema 的契约测试', state: 'created', activation: 'queued', turn: { state: 'accepted' },
+        backend: 'codex', channel: 'app-server', childId: 'c21a4f09-80a2-46b2-9c7d-ea3b5210ad41', version: 'v0.55.0',
+        model: 'gpt-5.3-codex', duration: '未知', lastActivity: '4s 前',
+        cwd: '/Users/.../mocl', depth: 1, epoch: 3, turnId: 'turn-20261027-002', error: null
+      },
+      {
+        label: '汇总 fixtures 的校验结果', state: 'completed', activation: 'inactive', turn: { state: 'completed' },
+        backend: 'kimi', channel: 'acp', childId: '71ed3a42-13c8-44de-8a1b-c7a7103d913a', version: 'v1.8.0',
+        model: 'kimi-for-coding', duration: '05:42', lastActivity: '2m 前',
+        cwd: '/Users/.../mocl/fixtures', depth: 1, epoch: 2, turnId: 'turn-20261027-003', error: null
+      },
+      {
+        label: '定位订阅重连失败原因', state: 'completed', activation: 'inactive', turn: { state: 'failed' },
+        backend: 'opencode', channel: 'acp', childId: 'a2c7f380-31bf-4c6b-9e2d-a69c07c212e0', version: 'v0.15.8',
+        model: 'deepseek-v4.1-flash 降级:free', duration: '00:37', lastActivity: '1m 前',
+        cwd: '/Users/.../mocl/orchestrator', depth: 2, epoch: 4, turnId: 'turn-20261027-004',
+        error: { code: 'SUBSCRIPTION_DISCONNECTED', userMessage: '订阅连接中断，请重试。', retryable: true, traceId: 'trace-0a71c94e2b3f4d8a' }
+      },
+      {
+        label: '检查文档索引配置', state: 'blocked', activation: 'inactive', turn: { state: 'accepted' },
+        backend: 'opencode', channel: 'acp', childId: 'b91d2a04-65f0-4ea9-8c2d-7c3a8016f4b2', version: 'v0.15.8',
+        model: '未知', duration: '未知', lastActivity: '8m 前',
+        cwd: '/Users/.../mocl/docs', depth: 1, epoch: 1, turnId: 'turn-20261027-005',
+        error: { code: 'BACKEND_DISABLED', userMessage: '该后端已禁用，可在宿主设置中启用。', retryable: false, traceId: 'trace-51bd4c920a7f43e1' }
+      }
+    ];
+
+    const twentyLabels = [
+      '评审 PR#14 的 diff', '执行 schema 的契约测试', '汇总 fixtures 的校验结果', '定位订阅重连失败原因', '检查文档索引配置',
+      '核对事件序列的回填范围', '等待执行适配器兼容检查', '整理 ABI 字段差异', '复现宿主断连后的错误码', '验证后端禁用提示',
+      '扫描 orchestrator 的重试路径', '排队检查快照恢复逻辑', '确认中文文案长度', '分析轮询降级的日志', '检查冷启动数据拉取',
+      '复核明暗主题对比度', '等待执行长路径换行检查', '汇总键盘导航结果', '诊断丢失代理的最后活动', '确认禁用后端设置提示'
+    ];
+
+    const iconPaths = {
+      running: '<path d="M7 4.5 14 10l-7 5.5Z"/><path d="M3 10h2"/>',
+      queued: '<path d="M3 5h9M3 9h7M3 13h5"/><circle cx="14" cy="13" r="4"/><path d="M14 11v2l1.5 1"/>',
+      waiting: '<circle cx="10" cy="10" r="7"/><path d="M7.8 7.5a2.4 2.4 0 0 1 4.6 1c0 2-2.4 2-2.4 4M10 15.5h.01"/>',
+      completed: '<circle cx="10" cy="10" r="7"/><path d="m6.5 10 2.2 2.2 4.8-5"/>',
+      aborted: '<circle cx="10" cy="10" r="7"/><path d="M7 7h6v6H7Z"/>',
+      failed: '<path d="M10 3 18 17H2Z"/><path d="M10 8v4M10 14.5h.01"/>',
+      recovering: '<path d="M4 8a7 7 0 1 1 1 7M4 8V3M4 8h5"/>',
+      lost: '<path d="m8 12-1 1a3 3 0 0 1-4-4l3-3a3 3 0 0 1 4 0M12 8l1-1a3 3 0 0 1 4 4l-3 3a3 3 0 0 1-4 0M8 8l4 4"/>',
+      archived: '<path d="M3 5h14v4H3ZM5 9v7h10V9M8 12h4"/>',
+      blocked: '<circle cx="10" cy="10" r="7"/><path d="M7 6v8M13 6v8"/>',
+      created: '<circle cx="10" cy="10" r="6"/><path d="M10 3v2M10 15v2"/>',
+      unknown: '<circle cx="10" cy="10" r="7"/><path d="M8 7a2 2 0 1 1 3 2c-1 .5-1 1-1 2M10 14h.01"/>'
+    };
+
+    let pageState = 'normal';
+    let scenario = 'standard';
+    let currentRows = demoRows;
+    let retryTimer;
+
+    const summaryBar = document.getElementById('summary-bar');
+    const scrollport = document.getElementById('panel-scrollport');
+
+    function shown(value) {
+      return value === undefined || value === null || value === '' ? '未知' : String(value);
+    }
+
+    function escapeHtml(value) {
+      return shown(value).replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
+    }
+
+    function statusFor(agent) {
+      const state = agent.state;
+      const activation = agent.activation;
+      const turnState = agent.turn && agent.turn.state;
+      if (state === 'lost') return { key: 'lost', label: '已丢失', secondary: '', icon: 'lost' };
+      if (state === 'recovering') return { key: 'recovering', label: '恢复中', secondary: '', icon: 'recovering' };
+      if (turnState === 'failed') return { key: 'failed', label: '失败', secondary: '', icon: 'failed' };
+      if (state === 'aborted' || turnState === 'aborted') return { key: 'aborted', label: '已中止', secondary: '', icon: 'aborted' };
+      if (state === 'archived') return { key: 'archived', label: '已归档', secondary: '', icon: 'archived' };
+      if (state === 'completed' || turnState === 'completed') return { key: 'completed', label: '已完成', secondary: '', icon: 'completed' };
+      if (activation === 'queued') return { key: 'queued', label: '排队中', secondary: '等待槽位', icon: 'queued' };
+      if (state === 'awaiting-input' || turnState === 'awaiting-input') return { key: 'waiting', label: '等待输入', secondary: '', icon: 'waiting' };
+      if (state === 'blocked') return { key: 'blocked', label: '已阻塞', secondary: '', icon: 'blocked' };
+      if (activation === 'draining' && (state === 'running' || turnState === 'running')) return { key: 'running', label: '运行中', secondary: '正在收尾', icon: 'running' };
+      if (state === 'running' || turnState === 'running') return { key: 'running', label: '运行中', secondary: '', icon: 'running' };
+      if (state === 'created' || turnState === 'accepted') return { key: 'created', label: '待启动', secondary: '', icon: 'created' };
+      return { key: 'unknown', label: '未知', secondary: '', icon: 'unknown' };
+    }
+
+    function statusIcon(name) {
+      return `<svg class="status-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${iconPaths[name] || iconPaths.unknown}</svg>`;
+    }
+
+    function refreshIcon() {
+      return '<svg class="status-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 7a7 7 0 1 0 1 6M16 7V2M16 7h-5"/></svg>';
+    }
+
+    function rowsForScenario() {
+      if (scenario === 'twenty') {
+        return twentyLabels.map((label, index) => ({
+          ...demoRows[index % demoRows.length],
+          label,
+          childId: `${demoRows[index % demoRows.length].childId}-demo-${String(index + 1).padStart(2, '0')}`,
+          turnId: `turn-demo-${String(index + 1).padStart(2, '0')}`
+        }));
+      }
+      if (scenario === 'long') {
+        const longRow = {
+          ...demoRows[0],
+          label: '跨仓库评审包含异常恢复、订阅重连与多语言长路径变更的超长任务差异并核对每一处行为回归',
+          model: 'very-long-model-name-for-layout-verification ≈配置值',
+          cwd: '/Users/.../a-very-long-workspace-path/with-many-nested-directories/for/external-agent-status-panel/verification'
+        };
+        return [longRow, ...demoRows.slice(1)];
+      }
+      return demoRows;
+    }
+
+    function renderSummary() {
+      if (pageState === 'loading') {
+        summaryBar.innerHTML = `<div class="count-group" aria-label="计数加载中">${'<span class="summary-skeleton"></span>'.repeat(4)}</div><span class="sync-status">订阅中</span>`;
+        return;
+      }
+      if (pageState === 'error') {
+        summaryBar.innerHTML = `
+          <div class="count-group" aria-label="计数未知">
+            <span class="count">运行中 <strong>未知</strong></span><span class="count">排队 <strong>未知</strong></span>
+            <span class="count">失败 <strong>未知</strong></span><span class="count">共 <strong>未知</strong></span>
+          </div>
+          <span class="sync-status">同步失败</span>
+          <button class="summary-retry" type="button" data-action="retry" aria-label="重试" title="重试">${refreshIcon()}</button>`;
+        return;
+      }
+      const rows = pageState === 'empty' ? [] : currentRows;
+      const statuses = rows.map(statusFor);
+      const running = statuses.filter(status => status.label === '运行中').length;
+      const queued = statuses.filter(status => status.label === '排队中').length;
+      const failed = statuses.filter(status => status.label === '失败').length;
+      const syncText = '已同步 seq=123 · 2s 前';
+      summaryBar.innerHTML = `
+        <div class="count-group" aria-label="运行中 ${running}，排队 ${queued}，失败 ${failed}，共 ${rows.length}">
+          <span class="count">运行中 <strong>${running}</strong></span><span class="count">排队 <strong>${queued}</strong></span>
+          <span class="count">失败 <strong>${failed}</strong></span><span class="count">共 <strong>${rows.length}</strong></span>
+        </div>
+        <span class="sync-status" title="${syncText}">${syncText}</span>`;
+    }
+
+    function renderLoading() {
+      const row = `
+        <div class="skeleton-row" aria-hidden="true">
+          <span class="skeleton-block skeleton-status"></span>
+          <span class="skeleton-stack"><span class="skeleton-block skeleton-label"></span><span class="skeleton-block skeleton-meta"></span></span>
+          <span class="skeleton-block skeleton-time"></span>
+        </div>`;
+      scrollport.innerHTML = `<div class="loading-view" aria-busy="true" aria-label="正在加载外部代理状态">${row.repeat(3)}</div>`;
+    }
+
+    function renderEmpty() {
+      scrollport.innerHTML = `
+        <div class="state-view">
+          <div class="state-view-inner">
+            <h2 class="state-title">无外部子代理</h2>
+            <p class="state-description">外部子代理会在这里出现</p>
+          </div>
+        </div>`;
+    }
+
+    function renderError() {
+      scrollport.innerHTML = `
+        <div class="state-view" role="alert">
+          <div class="state-view-inner">
+            <h2 class="state-title">无法获取外部代理状态</h2>
+            <p class="state-description">请确认宿主已启用并可访问，然后重试。</p>
+            <span class="error-code">code: <span class="code">HOST_UNAVAILABLE</span></span>
+            <button class="retry-button" type="button" data-action="retry">${refreshIcon()}重试</button>
+          </div>
+        </div>`;
+    }
+
+    function detailPair(key, value, code = false) {
+      return `<div class="detail-pair"><dt>${key}</dt><dd class="${code ? 'code' : ''}">${escapeHtml(value)}</dd></div>`;
+    }
+
+    function copyPair(key, value, copyKind, index) {
+      return `
+        <div class="detail-pair"><dt>${key}</dt><dd><span class="copy-line"><span class="code">${escapeHtml(value)}</span>
+          <button class="copy-button" type="button" data-copy="${copyKind}" data-agent-index="${index}" title="复制 ${key}">复制</button>
+        </span></dd></div>`;
+    }
+
+    function renderErrorDetails(error, index) {
+      if (!error) return '';
+      return `
+        <section class="error-block" aria-label="错误详情">
+          <h3 class="error-title">错误详情</h3>
+          <dl class="detail-list">
+            ${detailPair('code', error.code, true)}
+            ${detailPair('userMessage', error.userMessage)}
+            ${detailPair('retryable', error.retryable === undefined ? '未知' : (error.retryable ? '是' : '否'))}
+            ${copyPair('traceId', error.traceId, 'traceId', index)}
+          </dl>
+        </section>`;
+    }
+
+    function renderAgent(agent, index) {
+      const status = statusFor(agent);
+      const runtime = `${shown(agent.backend)} · ${shown(agent.channel)} · ${shown(agent.childId).slice(0, 8)} · ${shown(agent.version)}`;
+      const model = shown(agent.model);
+      const modelSeparator = model.indexOf(' ');
+      const modelName = modelSeparator === -1 ? model : model.slice(0, modelSeparator);
+      const modelNote = modelSeparator === -1 ? '' : model.slice(modelSeparator);
+      const duration = status.key === 'queued' ? '未开始' : shown(agent.duration);
+      const disabledNotice = agent.error && agent.error.code === 'BACKEND_DISABLED'
+        ? '<span class="backend-notice">该后端已禁用，可在宿主设置中启用。</span>' : '';
+      return `
+        <div class="agent-item" role="listitem">
+          <button class="agent-row" type="button" tabindex="${index === 0 ? '0' : '-1'}" aria-expanded="false" aria-controls="details-${index}" aria-label="${escapeHtml(agent.label)}，${status.label}" data-row-index="${index}">
+            <span class="status-column status-${status.key}">
+              <span class="status-primary">
+                <span class="status-dot" role="img" aria-label="状态：${status.label}"></span>
+                ${statusIcon(status.icon)}<span>${status.label}</span>
+              </span>
+              ${status.secondary ? `<span class="status-secondary">${status.secondary}</span>` : ''}
+            </span>
+            <span class="task-column">
+              <span class="task-label" title="${escapeHtml(agent.label)}">${escapeHtml(agent.label)}</span>
+              <span class="runtime-line">
+                <span class="runtime" title="${escapeHtml(runtime)}"><span class="runtime-text">${escapeHtml(runtime)}</span></span>
+                <span class="model" title="${escapeHtml(agent.model)}"><span class="model-name">${escapeHtml(modelName)}</span>${modelNote ? `<span class="model-note">${escapeHtml(modelNote)}</span>` : ''}</span>
+              </span>
+            </span>
+            <span class="timing-column"><span class="duration">${escapeHtml(duration)}</span><span title="最后活动">${escapeHtml(agent.lastActivity)}</span></span>
+            ${disabledNotice}
+          </button>
+          <div class="expanded-details" id="details-${index}" role="region" aria-label="${escapeHtml(agent.label)}详情" hidden>
+            <dl class="detail-list">
+              ${copyPair('childId', agent.childId, 'childId', index)}
+              ${detailPair('cwd', agent.cwd, true)}
+              ${detailPair('depth', agent.depth)}
+              ${detailPair('epoch', agent.epoch)}
+              ${detailPair('turnId', agent.turnId, true)}
+            </dl>
+            <!-- P1-PROGRESS: 未来仅在有真实进度数据时挂载独立折叠面板。 -->
+            <!-- P1-USAGE: 未来仅在有真实用量数据时挂载用量行。 -->
+            <!-- P1-CHILD-TREE: 未来仅在有真实父子关系时挂载外部原生子代理树。 -->
+            ${renderErrorDetails(agent.error, index)}
+          </div>
+        </div>`;
+    }
+
+    function renderNormal() {
+      scrollport.innerHTML = `<div class="agent-list" role="list" aria-label="外部子代理列表">${currentRows.map(renderAgent).join('')}</div>`;
+    }
+
+    function render() {
+      currentRows = rowsForScenario();
+      renderSummary();
+      if (pageState === 'loading') renderLoading();
+      if (pageState === 'empty') renderEmpty();
+      if (pageState === 'error') renderError();
+      if (pageState === 'normal') renderNormal();
+      document.querySelectorAll('[data-page-state]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.pageState === pageState)));
+      document.querySelectorAll('[data-scenario]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.scenario === scenario)));
+    }
+
+    function retry() {
+      window.clearTimeout(retryTimer);
+      pageState = 'loading';
+      render();
+      retryTimer = window.setTimeout(() => { pageState = 'normal'; render(); }, 450);
+    }
+
+    function toggleRow(row) {
+      const expanded = row.getAttribute('aria-expanded') === 'true';
+      const details = document.getElementById(row.getAttribute('aria-controls'));
+      row.setAttribute('aria-expanded', String(!expanded));
+      details.hidden = expanded;
+    }
+
+    function moveRowFocus(row, direction) {
+      const rows = [...document.querySelectorAll('.agent-row')];
+      const current = rows.indexOf(row);
+      let next = current + direction;
+      if (direction === 'first') next = 0;
+      if (direction === 'last') next = rows.length - 1;
+      if (!rows[next]) return;
+      rows.forEach((item, index) => { item.tabIndex = index === next ? 0 : -1; });
+      rows[next].focus({ preventScroll: true });
+      rows[next].scrollIntoView({ block: 'nearest' });
+    }
+
+    async function copyText(value) {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(value);
+        return;
+      }
+      const previousFocus = document.activeElement;
+      const textarea = document.createElement('textarea');
+      textarea.value = value;
+      textarea.setAttribute('aria-hidden', 'true');
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      const copied = document.execCommand('copy');
+      textarea.remove();
+      if (previousFocus && previousFocus.focus) previousFocus.focus({ preventScroll: true });
+      if (!copied) throw new Error('copy failed');
+    }
+
+    document.addEventListener('click', async event => {
+      const pageButton = event.target.closest('[data-page-state]');
+      if (pageButton) {
+        window.clearTimeout(retryTimer);
+        pageState = pageButton.dataset.pageState;
+        render();
+        return;
+      }
+      const scenarioButton = event.target.closest('[data-scenario]');
+      if (scenarioButton) {
+        window.clearTimeout(retryTimer);
+        scenario = scenarioButton.dataset.scenario;
+        pageState = 'normal';
+        render();
+        return;
+      }
+      if (event.target.closest('#theme-toggle')) {
+        const dark = document.body.toggleAttribute('data-ds-dark-theme');
+        const themeButton = document.getElementById('theme-toggle');
+        themeButton.textContent = dark ? '切换亮色' : '切换暗色';
+        themeButton.setAttribute('aria-pressed', String(dark));
+        return;
+      }
+      if (event.target.closest('[data-action="retry"]')) {
+        retry();
+        return;
+      }
+      const copyButton = event.target.closest('[data-copy]');
+      if (copyButton) {
+        const agent = currentRows[Number(copyButton.dataset.agentIndex)];
+        const value = copyButton.dataset.copy === 'childId' ? agent.childId : agent.error && agent.error.traceId;
+        try {
+          await copyText(shown(value));
+          copyButton.textContent = '已复制';
+        } catch {
+          copyButton.textContent = '复制失败，请手动复制';
+        }
+        window.setTimeout(() => { if (copyButton.isConnected) copyButton.textContent = '复制'; }, 1400);
+        return;
+      }
+      const row = event.target.closest('.agent-row');
+      if (row) toggleRow(row);
+    });
+
+    scrollport.addEventListener('keydown', event => {
+      const row = event.target.closest('.agent-row');
+      if (!row) return;
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        moveRowFocus(row, event.key === 'ArrowDown' ? 1 : -1);
+      }
+      if (event.key === 'Home' || event.key === 'End') {
+        event.preventDefault();
+        moveRowFocus(row, event.key === 'Home' ? 'first' : 'last');
+      }
+      if (event.key === 'Escape' && row.getAttribute('aria-expanded') === 'true') {
+        event.preventDefault();
+        toggleRow(row);
+        row.focus({ preventScroll: true });
+      }
+    });
+
+    render();
+  </script>
+</body>
+</html>

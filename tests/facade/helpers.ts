@@ -106,7 +106,8 @@ export class FakeAdapter implements BackendAdapter {
 export interface FacadeFixture {
   readonly facade: MoclFacade;
   readonly config: FacadeConfig;
-  readonly adapters: Partial<Record<ConfigBackendId, FakeAdapter>>;
+  /** W1（issue #18）：放宽为 BackendAdapter，允许测试注入非 FakeAdapter 的事件型假件。 */
+  readonly adapters: Partial<Record<ConfigBackendId, BackendAdapter>>;
   readonly dir: string;
   cleanup(): Promise<void>;
 }
@@ -135,7 +136,8 @@ export function enabledConfig(overrides: {
 export async function makeFacade(options: {
   config?: FacadeConfig;
   runtime?: RuntimeConfigProvider;
-  adapters?: Partial<Record<ConfigBackendId, FakeAdapter>>;
+  /** W1（issue #18）：放宽为 BackendAdapter，允许测试注入非 FakeAdapter 的事件型假件。 */
+  adapters?: Partial<Record<ConfigBackendId, BackendAdapter>>;
   registryPath?: string;
   clock?: () => Date;
 } = {}): Promise<FacadeFixture> {

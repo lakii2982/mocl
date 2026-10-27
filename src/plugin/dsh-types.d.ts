@@ -81,6 +81,15 @@ export interface DshHostContext {
     get(key: string): unknown;
   };
   get?(service: string): unknown;
+  /**
+   * cordis 作用域 inject（Context 原型成员，不受注入代理限制）：deps 内服务 ready 时执行
+   * 一次 callback，入参是解锁了 deps 属性访问的派生 ctx；callback 内挂到 scoped.effect 的
+   * disposer 随插件卸载自动清理。用于 apply 同步阶段尚未就绪的服务（webServer 等，
+   * 见 panel-route.ts registerPanelRoute）。
+   * 注意：晚就绪服务只能走这里——插件级 `inject = ["webServer"]` 在 headless/tui profile
+   * 会让整个插件（含工具）永远 pending（回归）。
+   */
+  inject?(deps: string[], callback: (scoped: DshHostContext) => void): unknown;
 }
 
 /** 插件配置（patch 行 `config:` 传入；全部可选，默认最小权限）。 */

@@ -111,4 +111,24 @@ describe("SessionRegistry（持久化 + 原子写 + journal 重建）", () => {
       await cleanup();
     }
   });
+
+  it("W1（issue #18）：可选 label/handshake 往返持久化；旧记录缺字段照常读入", async () => {
+    const { registry, dir, cleanup } = await makeRegistry();
+    try {
+      await registry.load();
+      await registry.upsert(
+        record("sess_A", { label: "修复登录页", handshake: { backendVersion: "cc-1.2.3", transport: "agent-sdk" } }),
+      );
+      // 旧形状记录（无 W1 新字段）：upsert/读入都不报错
+      await registry.upsert(record("sess_old", { remoteSessionId: "" }));
+      const reloaded = new SessionRegistry({ path: join(dir, "sessions.json") });
+      await reloaded.load();
+      expect(reloaded.get("sess_A")?.label).toBe("修复登录页");
+      expect(reloaded.get("sess_A")?.handshake).toEqual({ backendVersion: "cc-1.2.3", transport: "agent-sdk" });
+      expect(reloaded.get("sess_old")?.label).toBeUndefined();
+      expect(reloaded.get("sess_old")?.handshake).toBeUndefined();
+    } finally {
+      await cleanup();
+    }
+  });
 });

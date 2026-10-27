@@ -12,6 +12,15 @@ import { dirname, join } from "node:path";
 import type { BackendId } from "../abi/types.ts";
 import { moclError } from "./errors.ts";
 
+/**
+ * 握手结果摘录（W1，issue #18）：open 成功时由 Broker 从 `AdapterOpenResult.capabilities`
+ * 摘录两字段落盘；旧记录缺省 → 面板投影读 `null`（不猜、不回填文档值）。
+ */
+export interface SessionHandshake {
+  readonly backendVersion: string | null;
+  readonly transport: string | null;
+}
+
 export interface SessionRecord {
   /** ABI 逻辑会话 id（C2 起即 `childId`；与 L4 的 DSH childId 一一对应）。 */
   readonly childId: string;
@@ -22,6 +31,10 @@ export interface SessionRecord {
   readonly createdAt: string;
   /** fencing epoch：只增（02-state-machine §5 / INV-L2-2）。 */
   readonly epoch: number;
+  /** W1：任务摘要（open task 首行规范化，≤120 字符）；可选（旧记录缺省）。 */
+  readonly label?: string | null;
+  /** W1：适配器握手能力声明摘录（open 成功时缓存）；可选（旧记录缺省）。 */
+  readonly handshake?: SessionHandshake;
 }
 
 interface RegistryFile {

@@ -22,7 +22,7 @@ import type {
 import { ConcurrencyLimiter, type RuntimeConfigProvider } from "./concurrency.ts";
 import { moclError } from "./errors.ts";
 import { hashRequest, IdempotencyLedger, ledgerKey } from "./idempotency.ts";
-import { SessionRegistry, type SessionRecord } from "./session-registry.ts";
+import { SessionRegistry, type SessionHandshake, type SessionRecord } from "./session-registry.ts";
 
 export interface BrokerOptions {
   readonly runtime: RuntimeConfigProvider;
@@ -39,6 +39,8 @@ export interface OpenParams {
   readonly permissionProfile?: PermissionProfile;
   readonly childId?: string;
   readonly idempotencyKey?: string;
+  /** W1（issue #18）：任务摘要（调用方规范化后的 label）；缺省不写入记录。 */
+  readonly label?: string;
 }
 
 export interface OpenResult {
@@ -225,6 +227,7 @@ export class Broker {
         permissionProfile: params.permissionProfile ?? "read-only",
         epoch: 1,
       });
+      const capabilities = opened.capabilities;
       const record: SessionRecord = {
         childId: sessionId,
         backend: params.backend,
@@ -233,6 +236,16 @@ export class Broker {
         model: params.model ?? null,
         createdAt: this.#clock().toISOString(),
         epoch: 1,
+        // W1（issue #18）：任务摘要与握手摘录为可选字段——缺省不写字段，旧记录/旧调用方兼容。
+        ...(params.label === undefined ? {} : { label: params.label }),
+        ...(capabilities === undefined
+          ? {}
+          : {
+              handshake: {
+                backendVersion: capabilities.backendVersion,
+                transport: capabilities.transport,
+              } satisfies SessionHandshake,
+            }),
       };
       await this.#registry.upsert(record);
       this.#sessions.set(sessionId, {

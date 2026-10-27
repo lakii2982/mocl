@@ -1,0 +1,547 @@
+/*
+ * 外部代理面板样式（W2）—— 唯一参照：design/prototype.html（类名加 mocl- 前缀防宿主污染）。
+ * 硬约束：只允许 --dsw-* / --ds-* 官方令牌（tools/build-client.mjs 会扫描裸色值，出现即构建失败）。
+ * 面板无自身 header、无整卡阴影、无大圆角外框；三档响应式共用同一行网格。
+ */
+
+.mocl-panel,
+.mocl-panel * {
+  box-sizing: border-box;
+}
+
+.mocl-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  background-color: var(--dsw-alias-bg-base);
+  color: var(--dsw-alias-label-primary);
+  font: var(--dsw-font-markdown-base);
+}
+
+.mocl-panel button {
+  font: inherit;
+}
+
+.mocl-panel button:focus-visible,
+.mocl-panel [tabindex]:focus-visible {
+  outline-color: var(--dsw-alias-state-business-primary);
+  outline-width: var(--dsw-focus-ring-width);
+  outline-style: solid;
+  outline-offset: 2px;
+}
+
+/* ── 吸顶汇总条 ─────────────────────────────────────────────────── */
+
+.mocl-summary-bar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--dsw-alias-border-l2);
+  background-color: var(--dsw-alias-bg-base);
+  font: var(--dsw-font-xxs-12);
+}
+
+.mocl-count-group {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.mocl-count {
+  color: var(--dsw-alias-label-secondary);
+}
+
+.mocl-count strong {
+  color: var(--dsw-alias-label-primary);
+  font: var(--dsw-font-xxs-strong-12);
+}
+
+.mocl-summary-skeleton {
+  display: inline-block;
+  width: 42px;
+  height: 12px;
+  border-radius: var(--dsw-radius-xs);
+  background-color: var(--dsw-alias-bg-skeleton);
+}
+
+.mocl-sync-status {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--dsw-alias-label-secondary);
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mocl-summary-retry {
+  display: inline-grid;
+  flex: 0 0 28px;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 4px;
+  border: 1px solid var(--dsw-alias-border-l3);
+  border-radius: var(--dsw-radius-xs);
+  background-color: var(--dsw-alias-button-ghost-active-fill);
+  color: var(--dsw-alias-label-primary);
+  cursor: pointer;
+  transition: background-color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
+}
+
+.mocl-summary-retry:hover {
+  background-color: var(--dsw-alias-button-ghost-active-hover);
+}
+
+/* ── 滚动内容区与列表 ───────────────────────────────────────────── */
+
+.mocl-scrollport {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.mocl-agent-list {
+  min-width: 0;
+}
+
+.mocl-agent-item {
+  min-width: 0;
+  border-bottom: 1px solid var(--dsw-alias-border-l2);
+}
+
+.mocl-agent-row {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr) 52px;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  min-height: 52px;
+  margin: 0;
+  padding: 4px 12px;
+  border: 0;
+  border-radius: var(--dsw-radius-xs);
+  background-color: var(--dsw-alias-bg-base);
+  color: var(--dsw-alias-label-primary);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
+}
+
+.mocl-agent-row:hover {
+  background-color: var(--dsw-alias-interactive-bg-hover);
+}
+
+.mocl-agent-row[aria-expanded="true"] {
+  background-color: var(--dsw-alias-interactive-bg-active);
+}
+
+/* ── 左列：状态点 + 图标 + 中文状态（DESIGN §6/§7.2） ───────────── */
+
+.mocl-status-column {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+}
+
+.mocl-status-primary {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  white-space: nowrap;
+  font: var(--dsw-font-xxs-strong-12);
+}
+
+.mocl-status-dot {
+  flex: 0 0 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--dsw-radius-xs);
+  background-color: currentColor;
+}
+
+.mocl-status-icon {
+  flex: 0 0 14px;
+  width: 14px;
+  height: 14px;
+}
+
+.mocl-status-secondary {
+  padding-left: 26px;
+  color: var(--dsw-alias-label-secondary);
+  font: var(--dsw-font-xxs-12);
+  white-space: nowrap;
+}
+
+.mocl-status-running,
+.mocl-status-queued,
+.mocl-status-recovering {
+  color: var(--dsw-static-deepseek-600);
+}
+
+.mocl-status-waiting,
+.mocl-status-blocked,
+.mocl-model-note {
+  color: var(--dsw-static-amber-900);
+}
+
+.mocl-status-completed {
+  color: var(--dsw-static-green-900);
+}
+
+.mocl-status-failed,
+.mocl-status-lost {
+  color: var(--dsw-static-red-900);
+}
+
+.mocl-status-created,
+.mocl-status-aborted,
+.mocl-status-archived {
+  color: var(--dsw-static-neutral-bluish-700);
+}
+
+.mocl-status-unknown {
+  color: var(--dsw-alias-label-secondary);
+}
+
+body[data-ds-dark-theme] .mocl-status-running,
+body[data-ds-dark-theme] .mocl-status-queued,
+body[data-ds-dark-theme] .mocl-status-recovering {
+  color: var(--dsw-alias-state-business-primary);
+}
+
+body[data-ds-dark-theme] .mocl-status-waiting,
+body[data-ds-dark-theme] .mocl-status-blocked,
+body[data-ds-dark-theme] .mocl-model-note {
+  color: var(--dsw-static-amber-400);
+}
+
+body[data-ds-dark-theme] .mocl-status-completed {
+  color: var(--dsw-static-green-400);
+}
+
+body[data-ds-dark-theme] .mocl-status-failed,
+body[data-ds-dark-theme] .mocl-status-lost {
+  color: var(--dsw-static-red-400);
+}
+
+body[data-ds-dark-theme] .mocl-status-created,
+body[data-ds-dark-theme] .mocl-status-aborted,
+body[data-ds-dark-theme] .mocl-status-archived {
+  color: var(--dsw-static-neutral-bluish-300);
+}
+
+/* ── 中列：任务摘要 + runtime/模型（次行分段截断，DESIGN §10） ──── */
+
+.mocl-task-column {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.mocl-task-label {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--dsw-alias-label-primary);
+  font: var(--dsw-font-markdown-base-strong);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mocl-runtime-line {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  color: var(--dsw-alias-label-secondary);
+  font: var(--dsw-font-xxs-12);
+}
+
+.mocl-runtime,
+.mocl-model {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.mocl-runtime {
+  flex: 1 1 0;
+}
+
+.mocl-model {
+  display: flex;
+  flex: 0 0 auto;
+  max-width: 65%;
+  text-align: right;
+}
+
+.mocl-runtime-text,
+.mocl-model-name,
+.mocl-model-note {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mocl-runtime-text {
+  display: block;
+}
+
+.mocl-model-name {
+  flex: 0 0 auto;
+  max-width: 100%;
+}
+
+.mocl-model-note {
+  flex: 0 1 auto;
+}
+
+/* ── 右列：本轮耗时 / 最后活动 ─────────────────────────────────── */
+
+.mocl-timing-column {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--dsw-alias-label-secondary);
+  text-align: right;
+  white-space: nowrap;
+  font: var(--dsw-font-xxs-12);
+}
+
+.mocl-duration {
+  color: var(--dsw-alias-label-primary);
+  font: var(--dsw-font-xxs-strong-12);
+}
+
+.mocl-backend-notice {
+  grid-column: 1 / -1;
+  padding-top: 4px;
+  color: var(--dsw-static-neutral-bluish-700);
+  font: var(--dsw-font-xxs-12);
+  white-space: normal;
+}
+
+body[data-ds-dark-theme] .mocl-backend-notice {
+  color: var(--dsw-static-neutral-bluish-300);
+}
+
+/* ── 展开详情（定义列表 + 复制 + 错误块） ───────────────────────── */
+
+.mocl-details {
+  padding: 12px;
+  border-top: 1px solid var(--dsw-alias-border-l2);
+  background-color: var(--dsw-alias-markdown-code-block);
+}
+
+.mocl-details[hidden] {
+  display: none;
+}
+
+.mocl-detail-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.mocl-detail-pair {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+}
+
+.mocl-detail-pair dt {
+  color: var(--dsw-alias-label-secondary);
+  font: var(--dsw-font-xxs-12);
+}
+
+.mocl-detail-pair dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  font: var(--dsw-font-xxs-12);
+}
+
+.mocl-code {
+  font-family: var(--ds-font-family-code);
+}
+
+.mocl-copy-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.mocl-copy-button {
+  flex: 0 0 auto;
+  min-height: 28px;
+  padding: 3px 8px;
+  border: 1px solid var(--dsw-alias-border-l3);
+  border-radius: var(--dsw-radius-xs);
+  background-color: var(--dsw-alias-button-ghost-active-fill);
+  color: var(--dsw-alias-label-primary);
+  cursor: pointer;
+  font: var(--dsw-font-xxs-12);
+  transition: background-color var(--ds-transition-duration-fast) var(--ds-ease-in-out), color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
+}
+
+.mocl-copy-button:hover {
+  background-color: var(--dsw-alias-button-ghost-active-hover);
+}
+
+.mocl-error-block {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: var(--dsw-radius-sm);
+  background-color: var(--dsw-alias-code-diff-deleted);
+}
+
+.mocl-error-title {
+  margin: 0;
+  color: var(--dsw-static-red-900);
+  font: var(--dsw-font-xxs-strong-12);
+}
+
+body[data-ds-dark-theme] .mocl-error-title {
+  color: var(--dsw-static-red-400);
+}
+
+/* ── 四种页面态（加载 / 空 / 错误） ─────────────────────────────── */
+
+.mocl-state-view {
+  display: grid;
+  place-items: center;
+  min-height: 100%;
+  padding: 24px;
+  text-align: center;
+}
+
+.mocl-state-view-inner {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  max-width: 360px;
+}
+
+.mocl-state-title {
+  margin: 0;
+  color: var(--dsw-alias-label-primary);
+  font: var(--dsw-font-markdown-base-strong);
+}
+
+.mocl-state-description {
+  margin: 0;
+  color: var(--dsw-alias-label-secondary);
+  font: var(--dsw-font-markdown-base);
+}
+
+.mocl-error-code {
+  color: var(--dsw-alias-label-secondary);
+  overflow-wrap: anywhere;
+  font: var(--dsw-font-xxs-12);
+}
+
+.mocl-retry-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 3px 8px;
+  border: 1px solid var(--dsw-alias-border-l3);
+  border-radius: var(--dsw-radius-xs);
+  background-color: var(--dsw-alias-button-ghost-active-fill);
+  color: var(--dsw-alias-label-primary);
+  cursor: pointer;
+  font: var(--dsw-font-xxs-12);
+  transition: background-color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
+}
+
+.mocl-retry-button:hover {
+  background-color: var(--dsw-alias-button-ghost-active-hover);
+}
+
+.mocl-loading-view {
+  width: 100%;
+}
+
+.mocl-skeleton-row {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr) 52px;
+  gap: 8px;
+  align-items: center;
+  min-height: 52px;
+  padding: 4px 12px;
+  border-bottom: 1px solid var(--dsw-alias-border-l2);
+}
+
+.mocl-skeleton-stack {
+  display: grid;
+  gap: 8px;
+}
+
+.mocl-skeleton-block {
+  display: block;
+  height: 12px;
+  border-radius: var(--dsw-radius-xs);
+  background-color: var(--dsw-alias-bg-skeleton);
+}
+
+.mocl-skeleton-status {
+  width: 52px;
+}
+
+.mocl-skeleton-label {
+  width: 84%;
+}
+
+.mocl-skeleton-meta {
+  width: 64%;
+}
+
+.mocl-skeleton-time {
+  width: 40px;
+  justify-self: end;
+}
+
+/* ── 辅助 ──────────────────────────────────────────────────────── */
+
+.mocl-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mocl-panel,
+  .mocl-panel *,
+  .mocl-panel *::before,
+  .mocl-panel *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
