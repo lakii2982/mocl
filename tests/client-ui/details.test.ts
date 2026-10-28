@@ -35,7 +35,7 @@ function fullAgent(patch: Partial<PanelAgent> = {}): PanelAgent {
     activation: "active",
     turn: { state: "running" },
     label: "评审 PR#14 的 diff",
-    cwd: "/Users/dev/mocl/.worktrees/issue-18",
+    cwd: "/Users/.../mocl/.worktrees/issue-18",
     depth: 1,
     epoch: 7,
     lastTurnId: "turn-20261027-001",
@@ -139,7 +139,7 @@ describe("第二层「技术详情」：恰 5 个字段 + 排障说明 + 复制�
     expect(turnId?.copyValue).toBe("turn-20261027-001"); // turnId 对应 lastTurnId
     // cwd/depth/epoch 原值展示，无复制按钮
     expect(groups[1]?.fields.map((field) => [field.key, field.value, field.copyValue === undefined])).toEqual([
-      ["cwd", "/Users/dev/mocl/.worktrees/issue-18", true],
+      ["cwd", "/Users/.../mocl/.worktrees/issue-18", true],
       ["depth", "1", true],
     ]);
     expect(groups[2]?.fields[0]).toMatchObject({ key: "epoch", value: "7" });
