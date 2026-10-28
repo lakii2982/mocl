@@ -1,0 +1,1171 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>外部代理状态面板 v1.2 · 分组仪表盘</title>
+  <link rel="stylesheet" href="inputs/dsh-official-tokens.css">
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-width: 320px; height: 100%; }
+    body {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      background-color: var(--dsw-alias-bg-base);
+      color: var(--dsw-alias-label-primary);
+      font: var(--dsw-font-markdown-base);
+    }
+    body[data-ds-dark-theme] { color-scheme: dark; }
+    button { font: inherit; }
+    button, [role="button"] { -webkit-tap-highlight-color: currentColor; }
+    button:focus-visible, [tabindex]:focus-visible, summary:focus-visible {
+      outline-color: var(--dsw-alias-state-business-primary);
+      outline-width: var(--dsw-focus-ring-width);
+      outline-style: solid;
+      outline-offset: 2px;
+    }
+    .demo-controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--dsw-alias-border-l2);
+      background-color: var(--dsw-specific-sidebar-fill);
+    }
+    .demo-title { margin-right: 4px; font: var(--dsw-font-xxs-strong-12); }
+    .control-group { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+    .control-label { color: var(--dsw-alias-label-secondary); font: var(--dsw-font-xxs-12); }
+    .demo-button, .retry-button, .copy-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-height: 28px;
+      padding: 3px 8px;
+      border: 1px solid var(--dsw-alias-border-l3);
+      border-radius: var(--dsw-radius-xs);
+      background-color: var(--dsw-alias-button-ghost-active-fill);
+      color: var(--dsw-alias-label-primary);
+      cursor: pointer;
+      font: var(--dsw-font-xxs-12);
+      transition: background-color var(--ds-transition-duration-fast) var(--ds-ease-in-out), color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
+    }
+    .demo-button:hover, .retry-button:hover, .copy-button:hover { background-color: var(--dsw-alias-button-ghost-active-hover); }
+    .demo-button[aria-pressed="true"] {
+      border-color: var(--dsw-alias-state-business-primary);
+      background-color: var(--dsw-alias-interactive-bg-active);
+    }
+    .demo-shell {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) clamp(320px, 38vw, 560px);
+      min-height: 0;
+    }
+    .demo-conversation {
+      padding: 24px;
+      overflow: hidden;
+      background-color: var(--dsw-alias-bg-base);
+      color: var(--dsw-alias-label-secondary);
+    }
+    .demo-conversation p { max-width: 560px; margin: 0 0 12px; }
+    .right-dock {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      min-width: 0;
+      min-height: 0;
+      border-left: 1px solid var(--dsw-alias-border-l2);
+      background-color: var(--dsw-alias-bg-base);
+    }
+    .tab-strip {
+      display: flex;
+      align-items: center;
+      min-height: 40px;
+      padding: 4px 8px;
+      border-bottom: 1px solid var(--dsw-alias-border-l2);
+      background-color: var(--dsw-specific-sidebar-fill);
+    }
+    .tab-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      min-height: 28px;
+      padding: 3px 8px;
+      border-radius: var(--dsw-radius-sm);
+      background-color: var(--dsw-specific-sidebar-nav-item-active);
+      color: var(--dsw-alias-label-primary);
+      font: var(--dsw-font-xxs-strong-12);
+    }
+    .tab-close { color: var(--dsw-alias-label-secondary); font: var(--dsw-font-xxs-12); }
+    .agent-panel {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      min-width: 0;
+      min-height: 0;
+      background-color: var(--dsw-alias-bg-base);
+    }
+    .panel-top {
+      position: relative;
+      z-index: 3;
+      min-width: 0;
+      border-bottom: 1px solid var(--dsw-alias-border-l2);
+      background-color: var(--dsw-alias-bg-base);
+    }
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      padding: 12px 12px 8px;
+    }
+    .metric-card {
+      position: relative;
+      display: grid;
+      align-content: center;
+      gap: 2px;
+      min-width: 0;
+      min-height: 82px;
+      padding: 12px 9px 8px;
+      overflow: hidden;
+      border: 1px solid var(--dsw-alias-border-l2);
+      border-radius: var(--dsw-radius-sm);
+      background-color: var(--dsw-alias-bg-base);
+      text-align: left;
+      cursor: pointer;
+      transition: background-color var(--ds-transition-duration-fast) var(--ds-ease-in-out), border-color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
+    }
+    .metric-card:hover { background-color: var(--dsw-alias-interactive-bg-hover); }
+    .metric-card[aria-pressed="true"] {
+      border-color: currentColor;
+      background-color: var(--dsw-alias-interactive-bg-active);
+    }
+    .metric-card:disabled { cursor: default; }
+    .metric-accent {
+      position: absolute;
+      inset: 0 0 auto;
+      height: 3px;
+      background-color: currentColor;
+    }
+    .metric-value {
+      min-width: 0;
+      overflow: hidden;
+      color: var(--dsw-alias-label-primary);
+      font: var(--dsw-font-markdown-base-strong);
+      font-size: 27px;
+      font-weight: 600;
+      line-height: 32px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .metric-label {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      min-width: 0;
+      font: var(--dsw-font-xxs-strong-12);
+      white-space: nowrap;
+    }
+    .metric-label .status-icon { flex: 0 0 13px; width: 13px; height: 13px; }
+    .overview-line {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      min-height: 28px;
+      padding: 0 12px 6px;
+      font: var(--dsw-font-xxs-12);
+    }
+    .total-count { flex: 0 0 auto; color: var(--dsw-alias-label-primary); white-space: nowrap; }
+    .hidden-total-note { color: var(--dsw-alias-label-secondary); }
+    .sync-status {
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow: hidden;
+      color: var(--dsw-alias-label-secondary);
+      text-align: right;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .summary-retry {
+      flex: 0 0 auto;
+      min-height: 24px;
+      padding: 2px 7px;
+      border: 1px solid var(--dsw-alias-border-l3);
+      border-radius: var(--dsw-radius-xs);
+      background-color: var(--dsw-alias-button-ghost-active-fill);
+      color: var(--dsw-alias-label-primary);
+      cursor: pointer;
+      font: var(--dsw-font-xxs-strong-12);
+    }
+    .summary-skeleton { display: inline-block; width: 38px; height: 12px; border-radius: var(--dsw-radius-xs); background-color: var(--dsw-alias-bg-skeleton); }
+    .list-tools {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      min-height: 34px;
+      padding: 3px 12px 7px;
+    }
+    .list-tools-label { color: var(--dsw-alias-label-secondary); font: var(--dsw-font-xxs-12); }
+    .lost-switch {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 28px;
+      padding: 3px 0;
+      border: 0;
+      background-color: var(--dsw-alias-bg-base);
+      color: var(--dsw-alias-label-primary);
+      cursor: pointer;
+      font: var(--dsw-font-xxs-12);
+      white-space: nowrap;
+    }
+    .switch-track {
+      display: inline-flex;
+      align-items: center;
+      width: 28px;
+      height: 16px;
+      padding: 2px;
+      border: 1px solid var(--dsw-alias-border-l3);
+      border-radius: var(--dsw-radius-sm);
+      background-color: var(--dsw-alias-button-ghost-active-fill);
+      transition: background-color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
+    }
+    .switch-knob {
+      width: 10px;
+      height: 10px;
+      border-radius: var(--dsw-radius-xs);
+      background-color: var(--dsw-alias-bg-base);
+      transition: transform var(--ds-transition-duration-fast) var(--ds-ease-in-out);
+    }
+    .lost-switch[aria-checked="true"] .switch-track {
+      border-color: var(--dsw-alias-state-business-primary);
+      background-color: var(--dsw-alias-state-business-primary);
+    }
+    .lost-switch[aria-checked="true"] .switch-knob { transform: translateX(12px); }
+    .lost-switch:disabled { cursor: default; }
+    .panel-scrollport { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+    .group-section { min-width: 0; }
+    .group-heading { margin: 0; }
+    .group-header {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      width: 100%;
+      min-height: 42px;
+      padding: 9px 12px 7px;
+      border: 0;
+      border-bottom: 1px solid var(--dsw-alias-border-l2);
+      background-color: var(--dsw-alias-bg-base);
+      color: var(--dsw-alias-label-primary);
+      text-align: left;
+      cursor: pointer;
+      font: var(--dsw-font-xxs-strong-12);
+    }
+    .group-header:hover { background-color: var(--dsw-alias-interactive-bg-hover); }
+    .group-header .status-icon { width: 15px; height: 15px; }
+    .group-name { flex: 1 1 auto; min-width: 0; }
+    .group-count {
+      min-width: 22px;
+      padding: 0 6px;
+      border-radius: var(--dsw-radius-sm);
+      background-color: var(--dsw-alias-button-ghost-active-fill);
+      color: var(--dsw-alias-label-secondary);
+      text-align: center;
+      font: var(--dsw-font-xxs-strong-12);
+    }
+    .group-chevron { width: 14px; height: 14px; transition: transform var(--ds-transition-duration-fast) var(--ds-ease-in-out); }
+    .group-header[aria-expanded="true"] .group-chevron { transform: rotate(180deg); }
+    .agent-list { min-width: 0; padding: 8px 0 2px; }
+    .agent-list[hidden] { display: none; }
+    .agent-item { min-width: 0; padding: 0 8px 6px; }
+    .agent-row {
+      position: relative;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 52px;
+      gap: 8px;
+      align-items: center;
+      width: 100%;
+      min-height: 76px;
+      margin: 0;
+      padding: 10px 10px 10px 13px;
+      overflow: hidden;
+      border: 1px solid var(--dsw-alias-border-l2);
+      border-radius: var(--dsw-radius-sm);
+      background-color: var(--dsw-alias-bg-base);
+      color: var(--dsw-alias-label-primary);
+      text-align: left;
+      cursor: pointer;
+      transition: background-color var(--ds-transition-duration-fast) var(--ds-ease-in-out), border-color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
+    }
+    .agent-row:hover { background-color: var(--dsw-alias-interactive-bg-hover); }
+    .agent-row[aria-expanded="true"] {
+      border-color: var(--dsw-alias-border-l3);
+      background-color: var(--dsw-alias-interactive-bg-active);
+    }
+    .status-bar {
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 3px;
+      background-color: currentColor;
+    }
+    .task-column { display: grid; gap: 6px; min-width: 0; }
+    .task-heading { display: flex; align-items: center; gap: 6px; min-width: 0; }
+    .status-chip {
+      display: inline-flex;
+      flex: 0 0 auto;
+      align-items: center;
+      gap: 3px;
+      min-height: 22px;
+      padding: 1px 5px;
+      border: 1px solid currentColor;
+      border-radius: var(--dsw-radius-xs);
+      background-color: var(--dsw-alias-bg-base);
+      font: var(--dsw-font-xxs-strong-12);
+      line-height: 16px;
+      white-space: nowrap;
+    }
+    .status-dot { flex: 0 0 6px; width: 6px; height: 6px; border-radius: var(--dsw-radius-xs); background-color: currentColor; }
+    .status-icon { flex: 0 0 14px; width: 14px; height: 14px; }
+    .task-label {
+      min-width: 0;
+      overflow: hidden;
+      color: var(--dsw-alias-label-primary);
+      font: var(--dsw-font-markdown-base-strong);
+      font-size: 15px;
+      font-weight: 600;
+      line-height: 22px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .runtime-line { display: flex; min-width: 0; align-items: center; gap: 6px; font: var(--dsw-font-xxs-12); }
+    .runtime {
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow: hidden;
+      color: var(--dsw-alias-label-secondary);
+      font-size: 12px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .model {
+      display: flex;
+      flex: 0 1 auto;
+      align-items: center;
+      max-width: 58%;
+      min-width: 0;
+      padding: 1px 5px;
+      overflow: hidden;
+      border: 1px solid var(--dsw-alias-border-l2);
+      border-radius: var(--dsw-radius-xs);
+      background-color: var(--dsw-specific-sidebar-fill);
+      font: var(--dsw-font-xxs-12);
+      line-height: 16px;
+      white-space: nowrap;
+    }
+    .model-name { flex: 0 1 auto; min-width: 0; overflow: hidden; font-family: var(--ds-font-family-code); text-overflow: ellipsis; white-space: nowrap; }
+    .model-note { flex: 0 0 auto; margin-left: 4px; }
+    .model-note[data-source="reported"] { color: var(--dsw-static-green-900); }
+    .model-note[data-source="configured"], .model-note[data-source="fallback"] { color: var(--dsw-static-amber-900); }
+    .model-note[data-source="unknown"] { color: var(--dsw-alias-label-secondary); }
+    .timing-column { display: flex; flex-direction: column; gap: 3px; color: var(--dsw-alias-label-secondary); text-align: right; white-space: nowrap; font: var(--dsw-font-xxs-12); }
+    .duration { color: var(--dsw-alias-label-primary); font: var(--dsw-font-xxs-strong-12); }
+    .backend-notice {
+      grid-column: 1 / -1;
+      padding-top: 4px;
+      color: var(--dsw-static-neutral-bluish-700);
+      font: var(--dsw-font-xxs-12);
+      white-space: normal;
+    }
+    .tone-running, .tone-queued, .tone-recovering { color: var(--dsw-static-deepseek-600); }
+    .tone-waiting, .tone-blocked { color: var(--dsw-static-amber-900); }
+    .tone-completed { color: var(--dsw-static-green-900); }
+    .tone-failed, .tone-lost { color: var(--dsw-static-red-900); }
+    .tone-created, .tone-aborted, .tone-archived, .tone-other { color: var(--dsw-static-neutral-bluish-700); }
+    .tone-unknown { color: var(--dsw-alias-label-secondary); }
+    body[data-ds-dark-theme] .tone-running,
+    body[data-ds-dark-theme] .tone-queued,
+    body[data-ds-dark-theme] .tone-recovering { color: var(--dsw-alias-state-business-primary); }
+    body[data-ds-dark-theme] .tone-waiting,
+    body[data-ds-dark-theme] .tone-blocked,
+    body[data-ds-dark-theme] .model-note[data-source="configured"],
+    body[data-ds-dark-theme] .model-note[data-source="fallback"] { color: var(--dsw-static-amber-400); }
+    body[data-ds-dark-theme] .tone-completed,
+    body[data-ds-dark-theme] .model-note[data-source="reported"] { color: var(--dsw-static-green-400); }
+    body[data-ds-dark-theme] .tone-failed,
+    body[data-ds-dark-theme] .tone-lost { color: var(--dsw-static-red-400); }
+    body[data-ds-dark-theme] .tone-created,
+    body[data-ds-dark-theme] .tone-aborted,
+    body[data-ds-dark-theme] .tone-archived,
+    body[data-ds-dark-theme] .tone-other,
+    body[data-ds-dark-theme] .backend-notice { color: var(--dsw-static-neutral-bluish-300); }
+    .expanded-details {
+      margin: 0 4px 8px 13px;
+      padding: 12px;
+      border: 1px solid var(--dsw-alias-border-l2);
+      border-top: 0;
+      border-radius: var(--dsw-radius-sm);
+      background-color: var(--dsw-alias-markdown-code-block);
+    }
+    .expanded-details[hidden] { display: none; }
+    .detail-group { margin: 0 0 12px; }
+    .detail-group:last-child { margin-bottom: 0; }
+    .detail-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+    .detail-title { margin: 0 0 8px; color: var(--dsw-alias-label-primary); font: var(--dsw-font-xxs-strong-12); }
+    .detail-heading .detail-title { margin-bottom: 0; }
+    .task-full { margin: 0; overflow-wrap: anywhere; color: var(--dsw-alias-label-primary); font: var(--dsw-font-markdown-base); white-space: normal; }
+    .detail-list { display: grid; gap: 8px; margin: 0; }
+    .detail-pair { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 8px; align-items: start; }
+    .detail-pair dt { color: var(--dsw-alias-label-secondary); font: var(--dsw-font-xxs-12); }
+    .detail-pair dd { min-width: 0; margin: 0; overflow-wrap: anywhere; font: var(--dsw-font-xxs-12); }
+    .code { font-family: var(--ds-font-family-code); }
+    .copy-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    .copy-button { flex: 0 0 auto; min-height: 28px; }
+    .usage-note { margin: 8px 0 0; color: var(--dsw-alias-label-secondary); font: var(--dsw-font-xxs-12); }
+    .error-block {
+      display: grid;
+      gap: 8px;
+      margin: 0 0 12px;
+      padding: 12px;
+      border: 1px solid var(--dsw-alias-border-l2);
+      border-radius: var(--dsw-radius-sm);
+      background-color: var(--dsw-alias-code-diff-deleted);
+    }
+    .error-title { margin: 0; color: var(--dsw-static-red-900); font: var(--dsw-font-xxs-strong-12); }
+    body[data-ds-dark-theme] .error-title { color: var(--dsw-static-red-400); }
+    .technical-details { border-top: 1px solid var(--dsw-alias-border-l2); }
+    .technical-summary {
+      min-height: 28px;
+      padding: 8px 0 0;
+      color: var(--dsw-alias-label-secondary);
+      cursor: pointer;
+      font: var(--dsw-font-xxs-strong-12);
+    }
+    .technical-content { padding-top: 12px; }
+    .technical-help { margin: 0 0 8px; color: var(--dsw-alias-label-secondary); font: var(--dsw-font-xxs-12); }
+    .technical-group { margin-bottom: 12px; }
+    .technical-group:last-child { margin-bottom: 0; }
+    .state-view { display: grid; place-items: center; min-height: 100%; padding: 24px; text-align: center; }
+    .state-view-inner { display: grid; justify-items: center; gap: 12px; max-width: 360px; }
+    .state-title { margin: 0; color: var(--dsw-alias-label-primary); font: var(--dsw-font-markdown-base-strong); }
+    .state-description { margin: 0; color: var(--dsw-alias-label-secondary); font: var(--dsw-font-markdown-base); }
+    .error-code { color: var(--dsw-alias-label-secondary); font: var(--dsw-font-xxs-12); overflow-wrap: anywhere; }
+    .loading-view { width: 100%; }
+    .skeleton-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 52px;
+      gap: 8px;
+      align-items: center;
+      min-height: 76px;
+      margin: 8px;
+      padding: 10px 12px;
+      border: 1px solid var(--dsw-alias-border-l2);
+      border-radius: var(--dsw-radius-sm);
+    }
+    .skeleton-stack { display: grid; gap: 8px; }
+    .skeleton-block { display: block; height: 12px; border-radius: var(--dsw-radius-xs); background-color: var(--dsw-alias-bg-skeleton); }
+    .skeleton-label { width: 84%; }
+    .skeleton-meta { width: 64%; }
+    .skeleton-time { width: 40px; justify-self: end; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+    .capture-mode { grid-template-rows: minmax(0, 1fr); }
+    .capture-mode .demo-controls, .capture-mode .demo-conversation { display: none; }
+    .capture-mode .demo-shell { grid-template-columns: minmax(0, 1fr); }
+    .capture-mode .right-dock { width: 100%; border-left: 0; }
+    @media (max-width: 767px) {
+      .demo-shell { grid-template-columns: minmax(0, 1fr); }
+      .demo-conversation { display: none; }
+      .right-dock { width: 100%; border-left: 0; }
+      .demo-controls { padding: 8px 12px; }
+    }
+    @media (max-width: 380px) {
+      .metric-grid { gap: 5px; padding-right: 8px; padding-left: 8px; }
+      .metric-card { padding-right: 6px; padding-left: 6px; }
+      .metric-label { gap: 2px; }
+      .metric-label .status-icon { display: none; }
+      .overview-line, .list-tools { padding-right: 8px; padding-left: 8px; }
+      .agent-item { padding-right: 6px; padding-left: 6px; }
+      .status-chip { padding-right: 4px; padding-left: 4px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation: none !important;
+        transition: none !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="demo-controls" aria-label="原型演示控制，非面板 UI">
+    <span class="demo-title">v1.2 分组仪表盘 · 非面板 UI</span>
+    <div class="control-group" aria-label="四种页面态">
+      <span class="control-label">页面态</span>
+      <button class="demo-button" type="button" data-page-state="loading" aria-pressed="false">加载中</button>
+      <button class="demo-button" type="button" data-page-state="empty" aria-pressed="false">空态</button>
+      <button class="demo-button" type="button" data-page-state="error" aria-pressed="false">错误态</button>
+      <button class="demo-button" type="button" data-page-state="normal" aria-pressed="true">正常态</button>
+    </div>
+    <div class="control-group" aria-label="数据演示">
+      <span class="control-label">数据</span>
+      <button class="demo-button" type="button" data-scenario="standard" aria-pressed="true">标准分组</button>
+      <button class="demo-button" type="button" data-scenario="long" aria-pressed="false">长文本</button>
+      <button class="demo-button" type="button" data-scenario="twenty" aria-pressed="false">20 行滚动</button>
+      <button class="demo-button" type="button" data-scenario="other" aria-pressed="false">其他状态</button>
+      <button class="demo-button" type="button" data-scenario="empty-filter" aria-pressed="false">空筛选演示</button>
+    </div>
+    <button class="demo-button" id="theme-toggle" type="button" aria-pressed="false" title="切换明暗主题">切换暗色</button>
+  </div>
+
+  <main class="demo-shell">
+    <section class="demo-conversation" aria-label="会话占位列">
+      <p>这里是会话内容占位列，不属于外部代理面板。</p>
+      <p>右侧栏宽度为 320–560px；点击四个计数块只看对应组，再点一次取消。组标题在列表内吸顶。</p>
+      <p>点击代理行查看人话详情，再按需展开技术详情。键盘使用 ↑/↓ 移动，Enter 展开，Esc 收起。</p>
+    </section>
+    <aside class="right-dock" aria-label="右侧栏演示">
+      <div class="tab-strip" aria-label="宿主 tab strip">
+        <span class="tab-chip">外部代理 <span class="tab-close" aria-hidden="true">×</span></span>
+      </div>
+      <section class="agent-panel" aria-label="外部代理运行状态">
+        <div class="panel-top">
+          <div class="metric-grid" id="metric-grid" role="group" aria-label="按状态查看"></div>
+          <div class="overview-line" id="overview-line"></div>
+          <div class="list-tools" id="list-tools"></div>
+        </div>
+        <div class="panel-scrollport" id="panel-scrollport"></div>
+      </section>
+    </aside>
+  </main>
+
+  <script>
+    const demoRows = [
+      {
+        label: '评审 PR#14 的 diff', state: 'running', activation: 'active', turn: { state: 'running' },
+        backend: 'claude-code', childId: '95d9ebac-74c1-4db2-9f31-4a1f2b830f21',
+        runtime: { transport: 'agent-sdk', agentId: 'claude-session-95d9ebac74c1', backendVersion: 'v2.1.310', model: 'claude-sonnet-4-5', modelSource: 'reported' },
+        startedAt: '2026-10-28 10:20:00', lastActivity: '12s 前',
+        usage: { inputTokens: 12580, outputTokens: 1640, costUsd: 0.084, durationMs: 83000, precision: 'exact', estimated: false },
+        cwd: '/Users/.../mocl/.worktrees/issue-18', depth: 1, epoch: 7, turnId: 'turn-20261027-001', error: null
+      },
+      {
+        label: '核对事件序列与订阅恢复', state: 'running', activation: 'draining', turn: { state: 'running' },
+        backend: 'kimi', childId: '18d2fa90-55b1-4e5a-a8c3-95af1c72c804',
+        runtime: { transport: 'acp', agentId: 'kimi-session-18d2fa9055b1', backendVersion: 'v1.8.0', model: 'kimi-for-coding', modelSource: 'reported' },
+        startedAt: '2026-10-28 10:19:26', lastActivity: '24s 前',
+        usage: { inputTokens: 9020, outputTokens: 816, costUsd: null, durationMs: 117000, precision: 'coarse', estimated: true },
+        cwd: '/Users/.../mocl/src', depth: 1, epoch: 2, turnId: 'turn-20261027-007', error: null
+      },
+      {
+        label: '执行 schema 的契约测试', state: 'created', activation: 'queued', turn: { state: 'accepted' },
+        backend: 'codex', childId: 'c21a4f09-80a2-46b2-9c7d-ea3b5210ad41',
+        runtime: { transport: 'app-server', agentId: 'codex-thread-c21a4f0980a2', backendVersion: 'v0.55.0', model: 'gpt-5.3-codex', modelSource: 'configured' },
+        startedAt: '未知', lastActivity: '4s 前',
+        usage: { inputTokens: null, outputTokens: null, costUsd: null, durationMs: null, precision: 'none', estimated: false },
+        cwd: '/Users/.../mocl', depth: 1, epoch: 3, turnId: 'turn-20261027-002', error: null
+      },
+      {
+        label: '定位订阅重连失败原因', state: 'completed', activation: 'inactive', turn: { state: 'failed' },
+        backend: 'opencode', childId: 'a2c7f380-31bf-4c6b-9e2d-a69c07c212e0',
+        runtime: { transport: 'acp', agentId: 'opencode-session-a2c7f38031bf', backendVersion: 'v0.15.8', model: 'deepseek-v4.1-flash-free', modelSource: 'fallback' },
+        startedAt: '2026-10-28 10:18:40', lastActivity: '1m 前',
+        usage: { inputTokens: 1623, outputTokens: 98, costUsd: 0, durationMs: 37000, precision: 'exact', estimated: false },
+        cwd: '/Users/.../mocl/orchestrator', depth: 2, epoch: 4, turnId: 'turn-20261027-004',
+        error: { code: 'SUBSCRIPTION_DISCONNECTED', userMessage: '订阅连接中断，请重试。', retryable: 'backoff', traceId: 'trace-0a71c94e2b3f4d8a' }
+      },
+      {
+        label: '汇总 fixtures 的校验结果', state: 'completed', activation: 'inactive', turn: { state: 'completed' },
+        backend: 'kimi', childId: '71ed3a42-13c8-44de-8a1b-c7a7103d913a',
+        runtime: { transport: 'acp', agentId: 'kimi-session-71ed3a4213c8', backendVersion: 'v1.8.0', model: 'kimi-for-coding', modelSource: 'reported' },
+        startedAt: '2026-10-28 10:14:12', lastActivity: '2m 前',
+        usage: { inputTokens: 36996, outputTokens: 2104, costUsd: null, durationMs: 342000, precision: 'coarse', estimated: true },
+        cwd: '/Users/.../mocl/fixtures', depth: 1, epoch: 2, turnId: 'turn-20261027-003', error: null
+      },
+      {
+        label: '诊断丢失代理的最后活动', state: 'lost', activation: 'inactive', turn: { state: 'running' },
+        backend: 'kimi', childId: 'e18ad7c2-74a2-46ed-8c0f-22c4a99e51b6',
+        runtime: { transport: 'acp', agentId: 'kimi-session-e18ad7c274a2', backendVersion: 'v1.8.0', model: 'kimi-for-coding', modelSource: 'reported' },
+        startedAt: '2026-10-28 09:58:11', lastActivity: '16m 前',
+        usage: { inputTokens: null, outputTokens: null, costUsd: null, durationMs: 915000, precision: 'none', estimated: false },
+        cwd: '/Users/.../mocl/scenarios', depth: 1, epoch: 5, turnId: 'turn-20261027-006', error: null
+      }
+    ];
+
+    const otherRows = [
+      {
+        ...demoRows[2], label: '检查文档索引配置', state: 'blocked', activation: 'inactive',
+        runtime: { ...demoRows[2].runtime, model: null, modelSource: 'unknown' },
+        error: { code: 'BACKEND_DISABLED', userMessage: '该后端已禁用，可在宿主设置中启用。', retryable: 'no', traceId: 'trace-51bd4c920a7f43e1' }
+      },
+      { ...demoRows[0], label: '等待补充复现步骤', state: 'awaiting-input', activation: 'inactive', turn: { state: 'awaiting-input' }, childId: 'waiting-demo' },
+      { ...demoRows[1], label: '恢复中断的执行会话', state: 'recovering', activation: 'inactive', childId: 'recovering-demo' }
+    ];
+
+    const twentyLabels = [
+      '评审 PR#14 的 diff', '核对事件序列与订阅恢复', '执行 schema 的契约测试', '定位订阅重连失败原因',
+      '汇总 fixtures 的校验结果', '更新面板交互设计说明', '诊断丢失代理的最后活动', '整理 ABI 字段差异',
+      '复现宿主断连后的错误码', '验证后端禁用提示', '扫描 orchestrator 的重试路径', '排队检查快照恢复逻辑',
+      '确认中文文案长度', '分析轮询降级的日志', '检查冷启动数据拉取', '复核明暗主题对比度',
+      '等待执行长路径换行检查', '汇总键盘导航结果', '确认分组吸顶行为', '验证计数筛选取消'
+    ];
+
+    const iconPaths = {
+      running: '<path d="M7 4.5 14 10l-7 5.5Z"/><path d="M3 10h2"/>',
+      queued: '<path d="M3 5h9M3 9h7M3 13h5"/><circle cx="14" cy="13" r="4"/><path d="M14 11v2l1.5 1"/>',
+      waiting: '<circle cx="10" cy="10" r="7"/><path d="M7.8 7.5a2.4 2.4 0 0 1 4.6 1c0 2-2.4 2-2.4 4M10 15.5h.01"/>',
+      completed: '<circle cx="10" cy="10" r="7"/><path d="m6.5 10 2.2 2.2 4.8-5"/>',
+      aborted: '<circle cx="10" cy="10" r="7"/><path d="M7 7h6v6H7Z"/>',
+      failed: '<path d="M10 3 18 17H2Z"/><path d="M10 8v4M10 14.5h.01"/>',
+      recovering: '<path d="M4 8a7 7 0 1 1 1 7M4 8V3M4 8h5"/>',
+      lost: '<path d="m8 12-1 1a3 3 0 0 1-4-4l3-3a3 3 0 0 1 4 0M12 8l1-1a3 3 0 0 1 4 4l-3 3a3 3 0 0 1-4 0M8 8l4 4"/>',
+      archived: '<path d="M3 5h14v4H3ZM5 9v7h10V9M8 12h4"/>',
+      blocked: '<circle cx="10" cy="10" r="7"/><path d="M7 6v8M13 6v8"/>',
+      created: '<circle cx="10" cy="10" r="6"/><path d="M10 3v2M10 15v2"/>',
+      unknown: '<circle cx="10" cy="10" r="7"/><path d="M8 7a2 2 0 1 1 3 2c-1 .5-1 1-1 2M10 14h.01"/>',
+      other: '<circle cx="5" cy="10" r="1"/><circle cx="10" cy="10" r="1"/><circle cx="15" cy="10" r="1"/>'
+    };
+
+    const FILTER_STORAGE_KEY = 'mocl.panel.filter.v1';
+    const metricDefinitions = [
+      { key: 'running', label: '运行中', icon: 'running' },
+      { key: 'queued', label: '排队', icon: 'queued' },
+      { key: 'failed', label: '失败', icon: 'failed' },
+      { key: 'completed', label: '已完成', icon: 'completed' }
+    ];
+    const filterKeys = ['all', ...metricDefinitions.map(metric => metric.key)];
+    const groupDefinitions = [
+      { key: 'running', label: '运行中', icon: 'running', defaultOpen: true },
+      { key: 'queued', label: '排队', icon: 'queued', defaultOpen: true },
+      { key: 'failed', label: '失败', icon: 'failed', defaultOpen: true },
+      { key: 'completed', label: '已完成', icon: 'completed', defaultOpen: false },
+      { key: 'lost', label: '已丢失', icon: 'lost', defaultOpen: false }
+    ];
+    let pageState = 'normal';
+    let scenario = 'standard';
+    let currentRows = demoRows;
+    let retryTimer;
+    let filterState = loadFilterState();
+    let metricFocusKey = 'running';
+    let groupOpen = {};
+
+    const metricGrid = document.getElementById('metric-grid');
+    const overviewLine = document.getElementById('overview-line');
+    const listTools = document.getElementById('list-tools');
+    const scrollport = document.getElementById('panel-scrollport');
+
+    function resetGroupOpen() {
+      groupOpen = Object.fromEntries([...groupDefinitions, { key: 'other', defaultOpen: false }].map(group => [group.key, group.defaultOpen]));
+    }
+
+    function loadFilterState() {
+      const fallback = { filter: 'all', hideLost: true };
+      try {
+        const saved = JSON.parse(window.localStorage.getItem(FILTER_STORAGE_KEY) || 'null');
+        if (!saved || !filterKeys.includes(saved.filter) || typeof saved.hideLost !== 'boolean') return fallback;
+        return { filter: saved.filter, hideLost: saved.hideLost };
+      } catch {
+        return fallback;
+      }
+    }
+
+    function saveFilterState() {
+      try {
+        window.localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filterState));
+      } catch {
+        return;
+      }
+    }
+
+    function shown(value) {
+      return value === undefined || value === null || value === '' ? '未知' : String(value);
+    }
+
+    function escapeHtml(value) {
+      return shown(value).replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
+    }
+
+    function statusFor(agent) {
+      const state = agent.state;
+      const activation = agent.activation;
+      const turnState = agent.turn && agent.turn.state;
+      if (state === 'lost') return { key: 'lost', label: '已丢失', secondary: '', icon: 'lost' };
+      if (state === 'recovering') return { key: 'recovering', label: '恢复中', secondary: '', icon: 'recovering' };
+      if (turnState === 'failed') return { key: 'failed', label: '失败', secondary: '', icon: 'failed' };
+      if (state === 'aborted' || turnState === 'aborted') return { key: 'aborted', label: '已中止', secondary: '', icon: 'aborted' };
+      if (state === 'archived') return { key: 'archived', label: '已归档', secondary: '', icon: 'archived' };
+      if (state === 'completed' || turnState === 'completed') return { key: 'completed', label: '已完成', secondary: '', icon: 'completed' };
+      if (activation === 'queued') return { key: 'queued', label: '排队中', secondary: '等待槽位', icon: 'queued' };
+      if (state === 'awaiting-input' || turnState === 'awaiting-input') return { key: 'waiting', label: '等待输入', secondary: '', icon: 'waiting' };
+      if (state === 'blocked') return { key: 'blocked', label: '已阻塞', secondary: '', icon: 'blocked' };
+      if (activation === 'draining' && (state === 'running' || turnState === 'running')) return { key: 'running', label: '运行中', secondary: '正在收尾', icon: 'running' };
+      if (state === 'running' || turnState === 'running') return { key: 'running', label: '运行中', secondary: '', icon: 'running' };
+      if (state === 'created' || turnState === 'accepted') return { key: 'created', label: '待启动', secondary: '', icon: 'created' };
+      return { key: 'unknown', label: '未知', secondary: '', icon: 'unknown' };
+    }
+
+    function statusExplanation(status) {
+      return ({
+        running: '后端正在执行本轮任务。', queued: '任务已接收，正在等待运行槽位。',
+        waiting: '任务正在等待你的输入。', completed: '本轮任务已完成。', aborted: '本轮任务已中止。',
+        failed: '本轮执行失败，可查看错误详情。', recovering: '正在尝试恢复该代理，尚不能确认已恢复。',
+        lost: '当前只能显示代理丢失前的最后已知状态。', archived: '该代理已归档，以下内容仅供查看。',
+        blocked: '任务已阻塞；原因未知时不作猜测。', created: '任务已创建，尚未开始运行。',
+        unknown: '当前信息不足，无法判断任务状态。'
+      })[status.key];
+    }
+
+    function statusIcon(name, className = 'status-icon') {
+      return `<svg class="${className}" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${iconPaths[name] || iconPaths.unknown}</svg>`;
+    }
+
+    function nativeSessionId(agent) {
+      return agent.runtime && agent.runtime.agentId ? agent.runtime.agentId : agent.backendSessionId;
+    }
+
+    function nativeShortId(agent) {
+      const value = nativeSessionId(agent);
+      return typeof value === 'string' && value.length > 0 ? value.slice(0, 8) : '未知';
+    }
+
+    function runtimeLine(agent) {
+      const runtime = agent.runtime || {};
+      return `${shown(agent.backend)} · ${shown(runtime.transport)} · ${nativeShortId(agent)} · ${shown(runtime.backendVersion)}`;
+    }
+
+    function modelParts(agent) {
+      const runtime = agent.runtime || {};
+      const source = runtime.modelSource || 'unknown';
+      if (source === 'unknown' || typeof runtime.model !== 'string' || runtime.model.length === 0) return { name: '未知', note: '', source: 'unknown' };
+      const note = source === 'reported' ? '实际' : source === 'configured' ? '配置值' : source === 'fallback' ? '降级' : '';
+      if (!note) return { name: '未知', note: '', source: 'unknown' };
+      return { name: runtime.model, note, source };
+    }
+
+    function formatDurationMs(value) {
+      if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return '未知';
+      const totalSeconds = Math.floor(value / 1000);
+      const seconds = totalSeconds % 60;
+      const minutes = Math.floor(totalSeconds / 60) % 60;
+      const hours = Math.floor(totalSeconds / 3600);
+      const pad = number => String(number).padStart(2, '0');
+      return hours > 0 ? `${pad(hours)}:${pad(minutes)}:${pad(seconds)}` : `${pad(minutes)}:${pad(seconds)}`;
+    }
+
+    function rowsForScenario() {
+      if (scenario === 'twenty') {
+        return twentyLabels.map((label, index) => ({
+          ...demoRows[index % demoRows.length], label,
+          childId: `${demoRows[index % demoRows.length].childId}-demo-${String(index + 1).padStart(2, '0')}`,
+          turnId: `turn-demo-${String(index + 1).padStart(2, '0')}`
+        }));
+      }
+      if (scenario === 'long') {
+        const longRow = {
+          ...demoRows[0],
+          label: '跨仓库评审包含异常恢复、订阅重连与多语言长路径变更的超长任务差异并核对每一处行为回归',
+          runtime: { ...demoRows[0].runtime, model: 'very-long-model-name-for-layout-verification', modelSource: 'configured' },
+          cwd: '/Users/.../a-very-long-workspace-path/with-many-nested-directories/for/external-agent-status-panel/verification'
+        };
+        return [longRow, ...demoRows.slice(1)];
+      }
+      if (scenario === 'other') return [...demoRows, ...otherRows];
+      if (scenario === 'empty-filter') return [demoRows[0], demoRows[2]];
+      return demoRows;
+    }
+
+    function countFor(key) {
+      const rows = pageState === 'empty' ? [] : currentRows;
+      return rows.filter(agent => statusFor(agent).key === key).length;
+    }
+
+    function renderMetrics() {
+      const available = pageState === 'normal' || pageState === 'empty';
+      metricGrid.innerHTML = metricDefinitions.map(metric => {
+        const count = available ? countFor(metric.key) : '未知';
+        const selected = filterState.filter === metric.key;
+        const fullCount = `${metric.label}，${count} 个代理`;
+        return `<button class="metric-card tone-${metric.key}" type="button" data-filter="${metric.key}" aria-pressed="${selected}" aria-label="${selected ? '取消筛选' : '只看'}${fullCount}" title="${fullCount}" tabindex="${metricFocusKey === metric.key ? '0' : '-1'}" ${available ? '' : 'disabled'}>
+          <span class="metric-accent" aria-hidden="true"></span>
+          <span class="metric-value" title="${fullCount}">${count}</span>
+          <span class="metric-label">${statusIcon(metric.icon)}<span>${metric.label}</span></span>
+          ${selected ? '<span class="sr-only">✓ 只看此组，再次点击取消</span>' : ''}
+        </button>`;
+      }).join('');
+    }
+
+    function renderOverview() {
+      if (pageState === 'loading') {
+        overviewLine.innerHTML = '<span class="summary-skeleton" aria-label="总览加载中"></span><span class="sync-status">订阅中</span>';
+        return;
+      }
+      if (pageState === 'error') {
+        overviewLine.innerHTML = '<span class="total-count">共 未知</span><span class="sync-status">同步失败</span><button class="summary-retry" type="button" data-action="retry">重试</button>';
+        return;
+      }
+      const rows = pageState === 'empty' ? [] : currentRows;
+      const hiddenLost = filterState.hideLost ? rows.filter(agent => agent.state === 'lost').length : 0;
+      const hiddenNote = hiddenLost > 0 ? `<span class="hidden-total-note">（隐藏 ${hiddenLost} 已丢失）</span>` : '';
+      const syncText = '已同步 · 2s 前';
+      overviewLine.innerHTML = `<span class="total-count">共 ${rows.length}${hiddenNote}</span><span class="sync-status" title="${syncText}">${syncText}</span>`;
+    }
+
+    function renderListTools() {
+      const available = pageState === 'normal' || pageState === 'empty';
+      listTools.innerHTML = `<span class="list-tools-label">按状态分组</span><button class="lost-switch" type="button" role="switch" aria-checked="${!filterState.hideLost}" aria-label="显示已丢失" ${available ? '' : 'disabled'}><span class="switch-track" aria-hidden="true"><span class="switch-knob"></span></span><span>显示已丢失</span></button>`;
+    }
+
+    function renderLoading() {
+      const row = '<div class="skeleton-row" aria-hidden="true"><span class="skeleton-stack"><span class="skeleton-block skeleton-label"></span><span class="skeleton-block skeleton-meta"></span></span><span class="skeleton-block skeleton-time"></span></div>';
+      scrollport.innerHTML = `<div class="loading-view" aria-busy="true" aria-label="正在加载外部代理状态">${row.repeat(3)}</div>`;
+    }
+
+    function renderEmpty() {
+      scrollport.innerHTML = '<div class="state-view"><div class="state-view-inner"><h2 class="state-title">无外部子代理</h2><p class="state-description">外部子代理会在这里出现</p></div></div>';
+    }
+
+    function renderFilterEmpty() {
+      scrollport.innerHTML = '<div class="state-view filter-empty-view"><div class="state-view-inner"><h2 class="state-title">该筛选下没有代理</h2><p class="state-description">可切换状态，或查看全部代理。</p><button class="retry-button" type="button" data-action="show-all">查看全部</button></div></div>';
+    }
+
+    function renderError() {
+      scrollport.innerHTML = '<div class="state-view" role="alert"><div class="state-view-inner"><h2 class="state-title">无法获取外部代理状态</h2><p class="state-description">请确认宿主已启用并可访问，然后重试。</p><span class="error-code">code: <span class="code">HOST_UNAVAILABLE</span></span><button class="retry-button" type="button" data-action="retry">重试</button></div></div>';
+    }
+
+    function detailPair(key, value, code = false) {
+      return `<div class="detail-pair"><dt>${key}</dt><dd class="${code ? 'code' : ''}">${escapeHtml(value)}</dd></div>`;
+    }
+
+    function copyPair(key, value, copyKind, index) {
+      if (value === undefined || value === null || value === '') return detailPair(key, '未知', true);
+      return `<div class="detail-pair"><dt>${key}</dt><dd><span class="copy-line"><span class="code">${escapeHtml(value)}</span><button class="copy-button" type="button" data-copy="${copyKind}" data-agent-index="${index}" title="复制 ${key}">复制</button></span></dd></div>`;
+    }
+
+    function renderUsageDetails(agent) {
+      const usage = agent.usage;
+      if (!usage || usage.precision === 'none') return '';
+      const approximate = usage.estimated ? '≈' : '';
+      const withPrecision = value => value === '未知' ? value : `${approximate}${value}`;
+      const cost = typeof usage.costUsd === 'number' ? `$${usage.costUsd}` : '未知';
+      return `<section class="detail-group usage-details" aria-label="用量"><h3 class="detail-title">用量</h3><dl class="detail-list">
+        ${detailPair('输入 tokens', withPrecision(shown(usage.inputTokens)))}${detailPair('输出 tokens', withPrecision(shown(usage.outputTokens)))}
+        ${detailPair('费用', withPrecision(cost))}${detailPair('耗时', withPrecision(formatDurationMs(usage.durationMs)))}
+        </dl>${usage.estimated ? '<p class="usage-note">估算值，不用于计费对账</p>' : ''}</section>`;
+    }
+
+    function renderErrorDetails(error, index) {
+      if (!error) return '';
+      return `<section class="error-block" aria-label="错误详情"><h3 class="error-title">错误详情</h3><dl class="detail-list">
+        ${detailPair('code', error.code, true)}${detailPair('userMessage', error.userMessage)}${detailPair('retryable', error.retryable)}${copyPair('traceId', error.traceId, 'traceId', index)}
+        </dl></section>`;
+    }
+
+    function renderDefaultDetails(agent, index) {
+      const status = statusFor(agent);
+      const runtime = agent.runtime || {};
+      const model = modelParts(agent);
+      const duration = status.key === 'queued' ? '未开始' : formatDurationMs(agent.usage && agent.usage.durationMs);
+      return `
+        <!-- DEFAULT-DETAILS-START -->
+        <section class="detail-group task-detail" aria-label="任务全文"><div class="detail-heading"><h3 class="detail-title">任务</h3><button class="copy-button" type="button" data-copy="label" data-agent-index="${index}" title="复制完整任务">复制</button></div><p class="task-full">${escapeHtml(agent.label)}</p></section>
+        <section class="detail-group" aria-label="状态与时间"><h3 class="detail-title">状态与时间</h3><dl class="detail-list">
+          ${detailPair('状态说明', statusExplanation(status))}${detailPair('开始时间', agent.startedAt)}${detailPair('最后活动', agent.lastActivity)}${detailPair('本轮耗时', duration)}
+        </dl></section>
+        ${renderUsageDetails(agent)}
+        <section class="detail-group" aria-label="实际运行体"><h3 class="detail-title">实际运行体</h3><dl class="detail-list">
+          ${detailPair('后端', agent.backend)}${detailPair('通道', runtime.transport)}${copyPair('原生会话 id', nativeShortId(agent), 'nativeId', index)}${detailPair('后端版本', runtime.backendVersion)}
+        </dl></section>
+        <section class="detail-group model-details" aria-label="模型"><h3 class="detail-title">模型</h3><dl class="detail-list"><div class="detail-pair"><dt>实际生效模型</dt><dd><span class="code">${escapeHtml(model.name)}</span>${model.note ? `<span class="model-note" data-source="${model.source}">${model.note}</span>` : ''}</dd></div></dl></section>
+        ${renderErrorDetails(agent.error, index)}
+        <!-- DEFAULT-DETAILS-END -->`;
+    }
+
+    function renderTechnicalDetails(agent, index) {
+      return `
+        <!-- TECHNICAL-DETAILS-START -->
+        <details class="technical-details" data-technical-details><summary class="technical-summary" aria-expanded="false" aria-controls="technical-${index}">技术详情</summary><div class="technical-content" id="technical-${index}">
+          <div class="technical-group"><p class="technical-help">排障时把这两项提供给 MOCL 维护者，分别定位子代理和本轮日志。</p><dl class="detail-list">${copyPair('childId', agent.childId, 'childId', index)}${copyPair('turnId', agent.turnId, 'turnId', index)}</dl></div>
+          <div class="technical-group"><p class="technical-help">排障时提供给 MOCL 维护者，用于核对任务目录和嵌套层级。</p><dl class="detail-list">${detailPair('cwd', agent.cwd, true)}${detailPair('depth', agent.depth)}</dl></div>
+          <div class="technical-group"><p class="technical-help">排障时提供给 MOCL 维护者；该值表示该会话被恢复的次数。</p><dl class="detail-list">${detailPair('epoch', agent.epoch)}</dl></div>
+        </div></details>
+        <!-- TECHNICAL-DETAILS-END -->`;
+    }
+
+    function renderAgent(agent, rowIndex) {
+      const sourceIndex = currentRows.indexOf(agent);
+      const status = statusFor(agent);
+      const fullRuntime = runtimeLine(agent);
+      const runtimeText = fullRuntime;
+      const model = modelParts(agent);
+      const modelTitle = model.note ? `${model.name} ${model.note}` : model.name;
+      const duration = status.key === 'queued' ? '未开始' : formatDurationMs(agent.usage && agent.usage.durationMs);
+      const disabledNotice = agent.error && agent.error.code === 'BACKEND_DISABLED' ? '<span class="backend-notice">该后端已禁用，可在宿主设置中启用。</span>' : '';
+      const accessibleName = `${shown(agent.label)}，${status.label}${status.secondary ? `，${status.secondary}` : ''}，${modelTitle}，${duration}，最后活动 ${shown(agent.lastActivity)}`;
+      return `<div class="agent-item" role="listitem">
+        <button class="agent-row" type="button" tabindex="${rowIndex === 0 ? '0' : '-1'}" aria-expanded="false" aria-controls="details-${sourceIndex}" aria-label="${escapeHtml(accessibleName)}" data-row-index="${rowIndex}">
+          <span class="status-bar tone-${status.key}" aria-hidden="true"></span>
+          <span class="task-column">
+            <span class="task-heading"><span class="status-chip tone-${status.key}"><span class="status-dot" role="img" aria-label="状态：${status.label}"></span>${statusIcon(status.icon)}<span>${status.label}</span></span><span class="task-label" title="${escapeHtml(agent.label)}">${escapeHtml(agent.label)}</span></span>
+            <span class="runtime-line"><span class="runtime" title="${escapeHtml(fullRuntime)}">${escapeHtml(runtimeText)}</span><span class="model" title="${escapeHtml(modelTitle)}"><span class="model-name">${escapeHtml(model.name)}</span>${model.note ? `<span class="model-note" data-source="${model.source}">${model.note}</span>` : ''}</span></span>
+          </span>
+          <span class="timing-column"><span class="duration">${escapeHtml(duration)}</span><span title="最后活动 ${escapeHtml(agent.lastActivity)}">${escapeHtml(agent.lastActivity)}</span></span>
+          ${disabledNotice}
+        </button>
+        <div class="expanded-details" id="details-${sourceIndex}" role="region" aria-label="${escapeHtml(agent.label)}详情" hidden>
+          ${renderDefaultDetails(agent, sourceIndex)}
+          ${renderTechnicalDetails(agent, sourceIndex)}
+        </div>
+      </div>`;
+    }
+
+    function renderGroup(group, rows, startIndex) {
+      const open = groupOpen[group.key];
+      return `<section class="group-section" role="group" aria-label="${group.label}，${rows.length} 个代理" data-group-section="${group.key}">
+        <h2 class="group-heading"><button class="group-header tone-${group.key}" type="button" data-group-header="${group.key}" aria-expanded="${open}" aria-controls="group-list-${group.key}">${statusIcon(group.icon)}<span class="group-name">${group.label}</span><span class="group-count" aria-label="${rows.length} 个代理">${rows.length}</span><svg class="group-chevron" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 7.5 5 5 5-5"/></svg></button></h2>
+        <div class="agent-list" id="group-list-${group.key}" role="list" aria-label="${group.label}代理列表" ${open ? '' : 'hidden'}>${rows.map((agent, index) => renderAgent(agent, startIndex + index)).join('')}</div>
+      </section>`;
+    }
+
+    function renderNormal() {
+      const matchingRows = currentRows.filter(agent => {
+        const status = statusFor(agent);
+        const matchesFilter = filterState.filter === 'all' || status.key === filterState.filter;
+        return matchesFilter && !(filterState.hideLost && agent.state === 'lost');
+      });
+      if (matchingRows.length === 0) {
+        renderFilterEmpty();
+        return;
+      }
+      const groups = filterState.filter === 'all'
+        ? [...groupDefinitions, { key: 'other', label: '其他状态', icon: 'other' }]
+        : groupDefinitions.filter(group => group.key === filterState.filter);
+      let rowIndex = 0;
+      const rendered = [];
+      for (const group of groups) {
+        const rows = matchingRows.filter(agent => {
+          const key = statusFor(agent).key;
+          return group.key === 'other' ? !groupDefinitions.some(item => item.key === key) : key === group.key;
+        });
+        if (rows.length === 0) continue;
+        rendered.push(renderGroup(group, rows, rowIndex));
+        rowIndex += rows.length;
+      }
+      scrollport.innerHTML = rendered.join('');
+    }
+
+    function render() {
+      currentRows = rowsForScenario();
+      renderMetrics();
+      renderOverview();
+      renderListTools();
+      if (pageState === 'loading') renderLoading();
+      if (pageState === 'empty') renderEmpty();
+      if (pageState === 'error') renderError();
+      if (pageState === 'normal') renderNormal();
+      document.querySelectorAll('[data-page-state]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.pageState === pageState)));
+      document.querySelectorAll('[data-scenario]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.scenario === scenario)));
+    }
+
+    function retry() {
+      window.clearTimeout(retryTimer);
+      pageState = 'loading';
+      render();
+      retryTimer = window.setTimeout(() => { pageState = 'normal'; render(); }, 450);
+    }
+
+    function toggleRow(row) {
+      const expanded = row.getAttribute('aria-expanded') === 'true';
+      const details = document.getElementById(row.getAttribute('aria-controls'));
+      row.setAttribute('aria-expanded', String(!expanded));
+      details.hidden = expanded;
+    }
+
+    function toggleGroup(button) {
+      const key = button.dataset.groupHeader;
+      const expanded = button.getAttribute('aria-expanded') === 'true';
+      groupOpen[key] = !expanded;
+      button.setAttribute('aria-expanded', String(!expanded));
+      document.getElementById(button.getAttribute('aria-controls')).hidden = expanded;
+    }
+
+    function moveRowFocus(row, direction) {
+      const rows = [...document.querySelectorAll('.agent-row')].filter(item => item.getClientRects().length > 0);
+      const current = rows.indexOf(row);
+      let next = current + direction;
+      if (direction === 'first') next = 0;
+      if (direction === 'last') next = rows.length - 1;
+      if (!rows[next]) return;
+      rows.forEach((item, index) => { item.tabIndex = index === next ? 0 : -1; });
+      rows[next].focus({ preventScroll: true });
+      rows[next].scrollIntoView({ block: 'nearest' });
+    }
+
+    function selectMetric(key) {
+      if (!metricDefinitions.some(metric => metric.key === key)) return;
+      metricFocusKey = key;
+      filterState = { ...filterState, filter: filterState.filter === key ? 'all' : key };
+      resetGroupOpen();
+      if (filterState.filter !== 'all') groupOpen[filterState.filter] = true;
+      saveFilterState();
+      render();
+      const selected = metricGrid.querySelector(`[data-filter="${key}"]`);
+      if (selected) selected.focus({ preventScroll: true });
+    }
+
+    function copyValue(agent, kind) {
+      if (kind === 'label') return agent.label;
+      if (kind === 'nativeId') return nativeSessionId(agent);
+      if (kind === 'childId') return agent.childId;
+      if (kind === 'turnId') return agent.turnId;
+      if (kind === 'traceId') return agent.error && agent.error.traceId;
+      return null;
+    }
+
+    async function copyText(value) {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(value);
+        return;
+      }
+      const previousFocus = document.activeElement;
+      const textarea = document.createElement('textarea');
+      textarea.value = value;
+      textarea.setAttribute('aria-hidden', 'true');
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      const copied = document.execCommand('copy');
+      textarea.remove();
+      if (previousFocus && previousFocus.focus) previousFocus.focus({ preventScroll: true });
+      if (!copied) throw new Error('copy failed');
+    }
+
+    document.addEventListener('click', async event => {
+      const pageButton = event.target.closest('[data-page-state]');
+      if (pageButton) {
+        window.clearTimeout(retryTimer);
+        pageState = pageButton.dataset.pageState;
+        render();
+        return;
+      }
+      const scenarioButton = event.target.closest('[data-scenario]');
+      if (scenarioButton) {
+        window.clearTimeout(retryTimer);
+        scenario = scenarioButton.dataset.scenario;
+        pageState = 'normal';
+        resetGroupOpen();
+        render();
+        return;
+      }
+      if (event.target.closest('#theme-toggle')) {
+        const dark = document.body.toggleAttribute('data-ds-dark-theme');
+        const themeButton = document.getElementById('theme-toggle');
+        themeButton.textContent = dark ? '切换亮色' : '切换暗色';
+        themeButton.setAttribute('aria-pressed', String(dark));
+        return;
+      }
+      if (event.target.closest('[data-action="retry"]')) {
+        retry();
+        return;
+      }
+      if (event.target.closest('[data-action="show-all"]')) {
+        filterState = { filter: 'all', hideLost: false };
+        resetGroupOpen();
+        saveFilterState();
+        render();
+        const firstRow = scrollport.querySelector('.agent-row');
+        if (firstRow) firstRow.focus({ preventScroll: true });
+        return;
+      }
+      const metricButton = event.target.closest('[data-filter]');
+      if (metricButton) {
+        selectMetric(metricButton.dataset.filter);
+        return;
+      }
+      const lostSwitch = event.target.closest('.lost-switch');
+      if (lostSwitch) {
+        filterState = { ...filterState, hideLost: !filterState.hideLost };
+        saveFilterState();
+        render();
+        const nextSwitch = listTools.querySelector('.lost-switch');
+        if (nextSwitch) nextSwitch.focus({ preventScroll: true });
+        return;
+      }
+      const groupButton = event.target.closest('[data-group-header]');
+      if (groupButton) {
+        toggleGroup(groupButton);
+        return;
+      }
+      const copyButton = event.target.closest('[data-copy]');
+      if (copyButton) {
+        const agent = currentRows[Number(copyButton.dataset.agentIndex)];
+        const value = copyValue(agent, copyButton.dataset.copy);
+        try {
+          await copyText(shown(value));
+          copyButton.textContent = '已复制';
+        } catch {
+          copyButton.textContent = '复制失败，请手动复制';
+        }
+        window.setTimeout(() => { if (copyButton.isConnected) copyButton.textContent = '复制'; }, 1400);
+        return;
+      }
+      const row = event.target.closest('.agent-row');
+      if (row) toggleRow(row);
+    });
+
+    metricGrid.addEventListener('keydown', event => {
+      const option = event.target.closest('[data-filter]');
+      if (!option || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+      event.preventDefault();
+      const current = metricDefinitions.findIndex(item => item.key === option.dataset.filter);
+      let next = current;
+      if (event.key === 'ArrowLeft') next = (current - 1 + metricDefinitions.length) % metricDefinitions.length;
+      if (event.key === 'ArrowRight') next = (current + 1) % metricDefinitions.length;
+      if (event.key === 'Home') next = 0;
+      if (event.key === 'End') next = metricDefinitions.length - 1;
+      metricFocusKey = metricDefinitions[next].key;
+      metricGrid.querySelectorAll('[data-filter]').forEach(button => { button.tabIndex = button.dataset.filter === metricFocusKey ? 0 : -1; });
+      metricGrid.querySelector(`[data-filter="${metricFocusKey}"]`).focus({ preventScroll: true });
+    });
+
+    scrollport.addEventListener('keydown', event => {
+      const row = event.target.closest('.agent-row');
+      if (!row) return;
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        moveRowFocus(row, event.key === 'ArrowDown' ? 1 : -1);
+      }
+      if (event.key === 'Home' || event.key === 'End') {
+        event.preventDefault();
+        moveRowFocus(row, event.key === 'Home' ? 'first' : 'last');
+      }
+      if (event.key === 'Escape' && row.getAttribute('aria-expanded') === 'true') {
+        event.preventDefault();
+        toggleRow(row);
+        row.focus({ preventScroll: true });
+      }
+    });
+
+    document.addEventListener('toggle', event => {
+      const details = event.target;
+      if (!details.matches || !details.matches('[data-technical-details]')) return;
+      const summary = details.querySelector('summary');
+      if (summary) summary.setAttribute('aria-expanded', String(details.open));
+    }, true);
+
+    function applyCaptureMode() {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('theme') === 'dark') document.body.setAttribute('data-ds-dark-theme', '');
+      if (params.get('view') === 'collapsed') {
+        Object.keys(groupOpen).forEach(key => { groupOpen[key] = false; });
+      }
+      if (params.get('capture') === '1') document.body.classList.add('capture-mode');
+      if (params.get('scenario') && ['standard', 'long', 'twenty', 'other', 'empty-filter'].includes(params.get('scenario'))) scenario = params.get('scenario');
+    }
+
+    resetGroupOpen();
+    applyCaptureMode();
+    render();
+  </script>
+</body>
+</html>

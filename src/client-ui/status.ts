@@ -27,8 +27,44 @@ export const TEXT = {
   syncJustNow: "刚刚",
   queuedSecondary: "等待槽位",
   drainingSecondary: "正在收尾",
-  modelConfiguredMark: "≈配置值",
+  // F3（v1.1 §4）：reported 也必须显式标「实际」；「≈配置值」改为直白「配置值」。
+  modelReportedMark: "实际",
+  modelConfiguredMark: "配置值",
   modelFallbackMark: "降级",
+  // F1 筛选条（v1.1 §2/§7）。
+  filterGroupLabel: "按状态筛选",
+  filterAll: "全部",
+  filterRunning: "运行中",
+  filterFailed: "失败",
+  filterCompleted: "已完成",
+  hideLostLabel: "隐藏已丢失",
+  filterCountUnit: "个代理",
+  filterEmptyTitle: "该筛选下没有代理",
+  filterEmptyDescription: "可切换状态，或查看全部代理。",
+  showAll: "查看全部",
+  // F2 详情两层（v1.1 §3/§7）：人话区组名与键名。
+  taskGroup: "任务",
+  copyFullTask: "复制完整任务",
+  statusTimeGroup: "状态与时间",
+  statusExplanationLabel: "状态说明",
+  startedAtLabel: "开始时间",
+  usageGroup: "用量",
+  inputTokensLabel: "输入 tokens",
+  outputTokensLabel: "输出 tokens",
+  costLabel: "费用",
+  usageDurationLabel: "耗时",
+  estimatedNote: "估算值，不用于计费对账",
+  runtimeGroup: "实际运行体",
+  backendLabel: "后端",
+  transportLabel: "通道",
+  nativeSessionIdLabel: "原生会话 id",
+  backendVersionLabel: "后端版本",
+  modelGroup: "模型",
+  modelKeyLabel: "实际生效模型",
+  technicalDetails: "技术详情",
+  technicalLocateHelp: "排障时把这两项提供给 MOCL 维护者，分别定位子代理和本轮日志。",
+  technicalContextHelp: "排障时提供给 MOCL 维护者，用于核对任务目录和嵌套层级。",
+  technicalRecoveryHelp: "排障时提供给 MOCL 维护者；该值表示该会话被恢复的次数。",
   emptyTitle: "无外部子代理",
   emptyDescription: "外部子代理会在这里出现",
   errorTitle: "无法获取外部代理状态",
@@ -84,9 +120,18 @@ export interface PanelAgent {
     readonly model?: string | null;
     readonly modelSource?: string | null;
   } | null;
-  /** 服务端 UsageRef 的展示视图：v1 只读 durationMs（实测耗时）；缺失 → 未知，不用 0 冒充。 */
+  /**
+   * 服务端 UsageRef 的展示视图（W5 扩展）：durationMs（实测耗时）沿用 v1；
+   * tokens/费用按 v1.1 §3.2 展示；precision=none → 整个用量组不渲染；
+   * estimated=true → 数值前加 ≈ 并注明不用于计费对账。缺失 → 未知，不用 0 冒充。
+   */
   readonly usage?: {
     readonly durationMs?: number | null;
+    readonly inputTokens?: number | null;
+    readonly outputTokens?: number | null;
+    readonly costUsd?: number | null;
+    readonly precision?: string | null;
+    readonly estimated?: boolean | null;
   } | null;
   readonly error?: {
     readonly code?: string | null;
@@ -222,11 +267,17 @@ export function labelText(agent: PanelAgent | null | undefined): string {
 /* 行内 runtime 与模型                                                   */
 /* ------------------------------------------------------------------ */
 
+/** 原生会话 id 完整值（runtime.agentId ?? backendSessionId）；缺失 → null。它不是 childId。 */
+export function nativeSessionId(agent: PanelAgent | null | undefined): string | null {
+  const raw = agent?.runtime?.agentId ?? agent?.backendSessionId ?? null;
+  return typeof raw === "string" && raw.length > 0 ? raw : null;
+}
+
 /** 原生 id 短写（runtime.agentId ?? backendSessionId 的前 8 字符）；缺失返回空串。 */
 export function nativeShortId(agent: PanelAgent | null | undefined): string {
-  const raw = agent?.runtime?.agentId ?? agent?.backendSessionId ?? null;
-  if (typeof raw !== "string" || raw.length === 0) return "";
-  return raw.slice(0, NATIVE_ID_SHORT_CHARS);
+  const full = nativeSessionId(agent);
+  if (full === null) return "";
+  return full.slice(0, NATIVE_ID_SHORT_CHARS);
 }
 
 /** 次行前部：`backend · 通道 · 原生 id 短写 · 版本`；任一项缺失为「未知」。 */
@@ -239,25 +290,44 @@ export function runtimeLine(agent: PanelAgent | null | undefined): string {
   ].join(" · ");
 }
 
-export interface PanelModelParts {
-  /** 模型主体（缺失 → 未知；不得截断主体，截断由 CSS 分段处理）。 */
-  readonly name: string;
-  /** 配置/降级标记（≈配置值 / 降级）；无则空串。 */
-  readonly note: string;
+export type PanelModelSource = "reported" | "configured" | "fallback" | "unknown";
+
+/** 来源白名单（wire 四值）：越界/缺失一律视为 unknown，不伪装成已知来源。 */
+export function isModelSource(value: unknown): value is PanelModelSource {
+  return value === "reported" || value === "configured" || value === "fallback" || value === "unknown";
 }
 
+export interface PanelModelParts {
+  /** 模型主体（缺失/来源不可靠 → 未知；不得截断主体，截断由 CSS 分段处理）。 */
+  readonly name: string;
+  /** 来源后缀（实际/配置值/降级）；无则空串。 */
+  readonly note: string;
+  /** 来源判定结果（行内与详情的着色键；仅 reported/configured/fallback 有后缀）。 */
+  readonly source: PanelModelSource;
+}
+
+/** F3（DESIGN-v1.1 §4）：来源 → 后缀文案；host 侧可能尚未上报 reported，client 不依赖其存在。 */
+export const MODEL_SOURCE_LABELS: Readonly<Record<"reported" | "configured" | "fallback", string>> = {
+  reported: TEXT.modelReportedMark,
+  configured: TEXT.modelConfiguredMark,
+  fallback: TEXT.modelFallbackMark,
+};
+
 /**
- * 实际模型 + 标记（DESIGN §3.3 / STATES §4.3）：
- * - configured：显示 `≈配置值`（并非已确认的实际返回值）；
- * - fallback：显示 `降级`（DESIGN 示例 `降级:free` 的档名来自旧原型演示数据；
- *   W1 数据契约没有 fallback 档名字段，v1 只如实标注「降级」，不编造档名）。
+ * 实际模型 + 来源后缀（DESIGN-v1.1 §4）：
+ * - reported → 「实际」；configured → 「配置值」；fallback → 「降级」（模型显示原值，不编造档名）；
+ * - unknown / 无法识别的来源 / 模型名缺失 → 整体「未知」，不把配置值伪装成实际模型。
  */
 export function modelParts(agent: PanelAgent | null | undefined): PanelModelParts {
-  const model = agent?.runtime?.model;
-  if (typeof model !== "string" || model.length === 0) return { name: UNKNOWN_TEXT, note: "" };
-  const source = agent?.runtime?.modelSource;
-  const note = source === "configured" ? TEXT.modelConfiguredMark : source === "fallback" ? TEXT.modelFallbackMark : "";
-  return { name: model, note };
+  const runtime = agent?.runtime ?? null;
+  const model = runtime?.model;
+  if (typeof model !== "string" || model.length === 0) return { name: UNKNOWN_TEXT, note: "", source: "unknown" };
+  const raw = runtime?.modelSource;
+  const source: PanelModelSource = isModelSource(raw) ? raw : "unknown";
+  const note =
+    source === "reported" || source === "configured" || source === "fallback" ? MODEL_SOURCE_LABELS[source] : "";
+  if (note === "") return { name: UNKNOWN_TEXT, note: "", source: "unknown" };
+  return { name: model, note, source };
 }
 
 /** 单后端禁用：行内提示（不是第五种页面态，不升级整页错误）。 */
@@ -352,4 +422,94 @@ export function syncReadyText(lastSyncAtMs: number | null, lastSeq: number | nul
   const ageText = Number.isFinite(ageMs) && ageMs < 5_000 ? TEXT.syncJustNow : formatAge(ageMs);
   const seqText = typeof lastSeq === "number" && Number.isSafeInteger(lastSeq) && lastSeq > 0 ? ` seq=${lastSeq}` : "";
   return `${TEXT.syncSynced}${seqText} · ${ageText}`;
+}
+
+/* ------------------------------------------------------------------ */
+/* W5 F2/F1：状态说明、用量视图、开始时间、隐藏 lost 文案                  */
+/* ------------------------------------------------------------------ */
+
+/** 状态说明（DESIGN-v1.1 §3.1）：面向用户的短句，不展示判定优先级或内部架构。 */
+export const STATUS_EXPLANATIONS: Readonly<Record<PanelStatusKey, string>> = {
+  running: "后端正在执行本轮任务。",
+  queued: "任务已接收，正在等待运行槽位。",
+  waiting: "任务正在等待你的输入。",
+  completed: "本轮任务已完成。",
+  aborted: "本轮任务已中止。",
+  failed: "本轮执行失败，可查看错误详情。",
+  recovering: "正在尝试恢复该代理，尚不能确认已恢复。",
+  lost: "当前只能显示代理丢失前的最后已知状态。",
+  archived: "该代理已归档，以下内容仅供查看。",
+  blocked: "任务已阻塞；原因未知时不作猜测。",
+  created: "任务已创建，尚未开始运行。",
+  unknown: "当前信息不足，无法判断任务状态。",
+};
+
+export function statusExplanation(status: PanelStatusView | PanelStatusKey): string {
+  const key = typeof status === "string" ? status : status.key;
+  return STATUS_EXPLANATIONS[key];
+}
+
+/** 开始时间展示：ISO → 本地 `YYYY-MM-DD HH:mm:ss`；非法/缺失 → null（显示为未知）。 */
+export function formatEventTime(value: unknown): string | null {
+  const ms = parseIsoMs(value);
+  if (ms === null) return null;
+  const at = new Date(ms);
+  const pad = (n: number): string => String(n).padStart(2, "0");
+  return `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())} ${pad(at.getHours())}:${pad(
+    at.getMinutes(),
+  )}:${pad(at.getSeconds())}`;
+}
+
+export interface PanelUsageView {
+  readonly inputTokens: string;
+  readonly outputTokens: string;
+  readonly costUsd: string;
+  /** 与状态区「本轮耗时」同一原值（§3.2：不重复计算、不制造两个数字）。 */
+  readonly duration: string;
+  readonly estimated: boolean;
+}
+
+/**
+ * 用量视图（DESIGN-v1.1 §3.2，precision/estimated 规则沿用）：
+ * - usage 缺失或 precision=none → null（整个用量组不渲染，不用 0/未知拼假组）；
+ * - estimated=true → 数值前加 ≈（「未知」「未开始」不加）；是否估算由调用方注明；
+ * - 单项缺失显示「未知」；费用 0 是有效值（$0），负数/非有限数视为缺失。
+ */
+export function usageView(agent: PanelAgent | null | undefined, nowMs: number): PanelUsageView | null {
+  const usage = agent?.usage;
+  if (usage === null || usage === undefined) return null;
+  if (usage.precision === "none") return null;
+  const estimated = usage.estimated === true;
+  const approx = estimated ? "≈" : "";
+  const finiteNonNegative = (value: unknown): number | null =>
+    typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
+  const numberOrUnknown = (value: unknown): string => {
+    const num = finiteNonNegative(value);
+    return num === null ? UNKNOWN_TEXT : `${approx}${String(num)}`;
+  };
+  const withApprox = (text: string): string =>
+    text === UNKNOWN_TEXT || text === TEXT.notStarted ? text : `${approx}${text}`;
+  const cost = finiteNonNegative(usage.costUsd);
+  return {
+    inputTokens: numberOrUnknown(usage.inputTokens),
+    outputTokens: numberOrUnknown(usage.outputTokens),
+    costUsd: cost === null ? UNKNOWN_TEXT : `${approx}$${cost}`,
+    duration: withApprox(shown(durationText(agent, nowMs))),
+    estimated,
+  };
+}
+
+/** 汇总数旁的隐藏 lost 说明（§2.2）：`（隐藏 N 已丢失）`；无隐藏行时不追加空说明。 */
+export function hiddenLostNote(count: number): string {
+  return count > 0 ? `（隐藏 ${count} 已丢失）` : "";
+}
+
+/** 同上的无障碍名片段：`，隐藏 N 已丢失`；0 → 空串。 */
+export function hiddenLostAriaNote(count: number): string {
+  return count > 0 ? `，隐藏 ${count} 已丢失` : "";
+}
+
+/** 筛选项完整无障碍名（§2.3）：如「运行中，3 个代理」；无可信快照时计数为「未知」。 */
+export function filterOptionAccessibleName(label: string, count: string): string {
+  return `${label}，${count} ${TEXT.filterCountUnit}`;
 }

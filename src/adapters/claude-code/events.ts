@@ -5,7 +5,10 @@
  * - **只有 `subtype:"success" && is_error:false && result 非空` 才发 `turn.completed`**；
  *   其余 result（含 `error_max_turns`）一律 `turn.failed`，错误码按 §10.1 映射；
  * - 无法映射的消息 → 丢弃 + 计数 + 节流 `session.warning{code:"adapter.event-dropped"}`；
- * - 终态之后不再发该轮事件（EV-4）；payload 对齐 `schema/event.json`。
+ * - 终态之后不再发该轮事件（EV-4）；payload 对齐 `schema/event.json`；
+ * - 每轮首个轮内事件前补发 `turn.started`（W4）：model 取 `system/init` /
+ *   `message_start` 实测值（配置 `model:null` 时的真实模型来源）；未知 → 空串，
+ *   绝不编造（W4 契约 §3）。
  */
 import { createHash } from "node:crypto";
 import type { AdapterEvent } from "../../abi/adapter.ts";
@@ -385,8 +388,14 @@ export class ClaudeEventMapper {
         const inner = asRecord(event["message"]);
         const id = asString(inner?.["id"]) ?? messageId;
         if (state !== undefined) state.currentMessageId = id;
+        // W4：先用旧 #model 快照本轮 turn.started，再把 message_start 实测值学入 #model（供下一轮）——
+        // 顺序反了会让本轮尚未发出的 turn.started 抢跑拿到流内 fallback 值。
+        const turnStarted = this.#ensureTurnStarted(state);
         if (inner !== undefined && typeof inner["model"] === "string") this.#model = inner["model"];
-        return [{ type: "message.started", turnId: state?.turnId, payload: { channel: "assistant", messageId: id.slice(0, 128) } }];
+        return [
+          ...turnStarted,
+          { type: "message.started", turnId: state?.turnId, payload: { channel: "assistant", messageId: id.slice(0, 128) } },
+        ];
       }
       case "content_block_start": {
         const block = asRecord(event["content_block"]);
@@ -400,6 +409,7 @@ export class ClaudeEventMapper {
             state.toolStarted.add(id);
           }
           return [
+            ...this.#ensureTurnStarted(state),
             {
               type: "tool.started",
               turnId: state?.turnId,
@@ -417,6 +427,7 @@ export class ClaudeEventMapper {
           const text = asString(delta["text"]) ?? "";
           if (text.length === 0) return [];
           return [
+            ...this.#ensureTurnStarted(state),
             {
               type: "message.delta",
               turnId: state?.turnId,
@@ -428,7 +439,10 @@ export class ClaudeEventMapper {
           const text = asString(delta["thinking"]) ?? "";
           if (text.length === 0) return [];
           state?.thinkingBuffer.push(text);
-          return [{ type: "reasoning.delta", turnId: state?.turnId, payload: { text, granularity: "token" } }];
+          return [
+            ...this.#ensureTurnStarted(state),
+            { type: "reasoning.delta", turnId: state?.turnId, payload: { text, granularity: "token" } },
+          ];
         }
         if (deltaType === "input_json_delta") {
           const index = asNumber(event["index"]);
@@ -524,6 +538,10 @@ export class ClaudeEventMapper {
     if (thinking.length > 0) {
       events.push({ type: "reasoning.summary", turnId: state?.turnId, payload: { text: thinking.join("\n").slice(0, MAX_TEXT) } });
     }
+    // W4：轮内首批 message/tool 事件前补 turn.started；纯 thinking 批次不触发（保持既有顺序断言）。
+    if (events.some((event) => event.type === "message.completed" || event.type === "tool.started")) {
+      events.unshift(...this.#ensureTurnStarted(state));
+    }
     return events;
   }
 
@@ -557,9 +575,13 @@ export class ClaudeEventMapper {
     const state = this.#ensureActiveTurn();
     if (state === undefined) return this.#drop("result:no-active-turn", 1, true);
     if (state.terminal) return this.#silentDrop("result:late", 1);
+    // W4：result 是轮内事件兜底——此前无任何轮内事件时，在这里补上每轮恰一条的 turn.started。
+    // 先补（#ensureTurnStarted 会跳过已终态的轮）再落 terminal。
+    const turnStarted = this.#ensureTurnStarted(state);
     state.terminal = true;
     const usage = this.#usageRef(message, state);
     const events: AdapterEvent[] = [
+      ...turnStarted,
       {
         type: "usage.updated",
         turnId: state.turnId,
@@ -680,6 +702,24 @@ export class ClaudeEventMapper {
       assistantError: undefined,
     });
     this.#activeTurnId = turnId;
+  }
+
+  /**
+   * W4：每轮首个轮内事件前补 `turn.started`（每轮恰一条；kimi/opencode 映射器同构）。
+   * model 取 `system/init` / `message_start` 实测值；init 未到（stream 模式下 init 在
+   * 首个输入之后）时为空串——facade 对空串不记 `reported`，投影回 configured/unknown，
+   * 不伪造模型值。仅在确有活动轮时发（system/init 本身不触发）。
+   */
+  #ensureTurnStarted(state: TurnState | undefined): AdapterEvent[] {
+    if (state === undefined || state.started || state.terminal) return [];
+    state.started = true;
+    return [
+      {
+        type: "turn.started",
+        turnId: state.turnId,
+        payload: { model: this.#model ?? "", delivery: "caller" },
+      },
+    ];
   }
 
   #failActive(error: AdapterError): AdapterEvent[] {
