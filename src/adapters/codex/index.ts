@@ -346,7 +346,11 @@ export class CodexAdapter implements BackendAdapter {
       const resumed: ThreadResumeResult = await client.threadResume({ threadId: remoteThreadId });
       if (handle !== undefined) {
         handle.remoteThreadId = resumed.thread.id;
-        if (resumed.model !== undefined) handle.model = resumed.model;
+        if (resumed.model !== undefined) {
+          handle.model = resumed.model;
+          // W4：resume 实测模型同步进映射器——后续 `turn.started.model` 报真实值。
+          this.#mapper.setModel(resumed.model);
+        }
         handle.materialized = true;
       }
       return { exists: true, remoteSessionId: resumed.thread.id };

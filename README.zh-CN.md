@@ -130,7 +130,12 @@ MOCL 以 DSH 插件形式交付，注册两个工具：
 存在的理由。
 
 面板是 `mocl_status` 背后同一门面的**只读投影**（`GET /mocl-panel/list`），仅在 tab
-打开时 2s 轮询、关闭即停，客户端不自算状态。设计与状态表见
+打开时 2s 轮询、关闭即停，客户端不自算状态。
+
+v1.2 起改为**分组仪表盘**：顶部 4 个可点击计数块（运行中/排队/失败/已完成），
+按状态分组且组头吸顶可折叠（已完成/已丢失默认收起）；每行有状态芯片与状态色条、
+模型 chip（标注实际/配置值/降级/未知），详情分为"人话信息 + 收起的「技术详情」"
+（childId / cwd / depth / epoch / turnId 只在技术详情里）。设计与状态表见
 [`docs/design/external-agent-panel/`](docs/design/external-agent-panel/README.md)。
 
 ```bash

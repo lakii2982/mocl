@@ -161,7 +161,14 @@ which is exactly why this panel exists.
 
 The panel is a read-only projection of the same facade that backs
 `mocl_status` (`GET /mocl-panel/list`); it polls every 2 s only while its tab is
-open and never derives state on the client. Design, state table and a
+open and never derives state on the client.
+
+The panel is a grouped dashboard: four clickable metric tiles (running / queued /
+failed / completed), sticky collapsible status groups (finished and lost groups
+start collapsed), a per-row status chip and status bar, a model chip showing
+whether the model was reported, configured, degraded or unknown, and row details
+split into human-readable facts plus a collapsed *technical details* section
+(child id, cwd, depth, epoch, turn id). Design, state table and a
 standalone prototype live in
 [`docs/design/external-agent-panel/`](docs/design/external-agent-panel/README.md).
 

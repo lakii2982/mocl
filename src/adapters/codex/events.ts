@@ -231,7 +231,10 @@ export class CodexEventMapper {
     const state = this.#turnState(remoteTurnId);
     if (state.started || state.terminal) return [];
     state.started = true;
-    const model = this.#model ?? asString(asRecord(turn)?.model) ?? "unspecified";
+    // W4：模型来源优先级——thread/start 响应实测（适配器 open() 注入）→ turn 通知自带 →
+    // 未知为空串（facade 不把空串记为 reported；绝不编造 "unspecified" 之类的占位值）。
+    const turnModel = asString(asRecord(turn)?.model);
+    const model = this.#model ?? turnModel ?? "";
     return [{ type: "turn.started", turnId: state.turnId, payload: { model: model.slice(0, 128), delivery: "caller" } }];
   }
 

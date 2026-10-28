@@ -219,18 +219,43 @@ describe("截断与缺失兜底（DESIGN §3.3 / STATES §4.5）", () => {
     expect(runtimeLine(agentOf({}))).toBe(`${UNKNOWN_TEXT} · ${UNKNOWN_TEXT} · ${UNKNOWN_TEXT} · ${UNKNOWN_TEXT}`);
   });
 
-  it("modelParts：主体保留；configured → ≈配置值；fallback → 降级；缺失 → 未知", () => {
+  // W5 F3（DESIGN-v1.1 §4）直接变更本用例：v1.1 要求 reported 显式标「实际」、
+  // 「≈配置值」改「配置值」，且返回值新增 source 供着色 —— 与旧断言（reported 无标记、
+  // 无 source 字段）直接冲突，故按新契约改写。
+  it("modelParts（v1.1 F3）：reported→实际；configured→配置值；fallback→降级；未知/缺失→未知", () => {
     expect(modelParts(agentOf({ runtime: { model: "deepseek-v4.1-flash", modelSource: "reported" } }))).toEqual({
       name: "deepseek-v4.1-flash",
-      note: "",
+      note: TEXT.modelReportedMark,
+      source: "reported",
     });
-    expect(modelParts(agentOf({ runtime: { model: "deepseek-v4.1-flash", modelSource: "configured" } })).note).toBe(
-      TEXT.modelConfiguredMark,
-    );
-    expect(modelParts(agentOf({ runtime: { model: "deepseek-v4.1-flash-free", modelSource: "fallback" } })).note).toBe(
-      TEXT.modelFallbackMark,
-    );
-    expect(modelParts(agentOf({}))).toEqual({ name: UNKNOWN_TEXT, note: "" });
+    expect(modelParts(agentOf({ runtime: { model: "deepseek-v4.1-flash", modelSource: "configured" } }))).toEqual({
+      name: "deepseek-v4.1-flash",
+      note: TEXT.modelConfiguredMark,
+      source: "configured",
+    });
+    expect(modelParts(agentOf({ runtime: { model: "deepseek-v4.1-flash-free", modelSource: "fallback" } }))).toEqual({
+      name: "deepseek-v4.1-flash-free",
+      note: TEXT.modelFallbackMark,
+      source: "fallback",
+    });
+    // unknown / 无法识别来源 / 模型名缺失 → 整体「未知」，不把配置值伪装成实际模型。
+    expect(modelParts(agentOf({ runtime: { model: "deepseek-v4.1-flash", modelSource: "unknown" } }))).toEqual({
+      name: UNKNOWN_TEXT,
+      note: "",
+      source: "unknown",
+    });
+    expect(modelParts(agentOf({ runtime: { model: "deepseek-v4.1-flash", modelSource: "nonsense" } }))).toEqual({
+      name: UNKNOWN_TEXT,
+      note: "",
+      source: "unknown",
+    });
+    expect(modelParts(agentOf({}))).toEqual({ name: UNKNOWN_TEXT, note: "", source: "unknown" });
+    // host 侧 W4 正在补 reported：缺失 modelSource 时不得伪装成实际模型。
+    expect(modelParts(agentOf({ runtime: { model: "deepseek-v4.1-flash" } }))).toEqual({
+      name: UNKNOWN_TEXT,
+      note: "",
+      source: "unknown",
+    });
   });
 
   it("isBackendDisabled：只认 BACKEND_DISABLED 错误码（行内提示，不升级整页错误）", () => {

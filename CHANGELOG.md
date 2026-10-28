@@ -23,6 +23,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   persists a task label plus the handshake capabilities used by the panel.
 - `POST /mocl-panel/heartbeat` records panel mount/row counts to
   `<journal.dir>/panel-heartbeat.json` for machine-verifiable acceptance.
+- **Panel v1.1 (usability)**: status filter (`全部/运行中/失败/已完成` + `隐藏已丢失`,
+  persisted per page), two-layer row details (human-readable facts first; `cwd`,
+  `depth`, `epoch`, `turnId` only inside a collapsed *technical details* section),
+  and model-source labels (`实际 / 配置值 / 降级 / 未知`).
+- **Real model reporting**: claude-code (`system/init.model`), codex
+  (`thread/start.model`) and kimi (`session/new` configOptions) now feed the
+  reported model into `turn.started.model`, so the panel shows the effective
+  model instead of `未知` when the configuration leaves `model: null`.
+- **Panel v1.2 (visual)**: grouped dashboard — four clickable metric tiles
+  (running / queued / failed / completed), sticky collapsible status groups with
+  lost/finished groups collapsed by default, status chip + left status bar per
+  row, model chip with its source, two-line timing column, and a 2×2 tile grid
+  below 440 px. Design: `docs/design/external-agent-panel/DESIGN-v1.2.md`.
 
 ### Changed
 
