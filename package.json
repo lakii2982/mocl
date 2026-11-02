@@ -55,7 +55,7 @@
     "@types/node": "^24.19.2",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
-    "esbuild": "^0.25.0",
+    "esbuild": "^0.28.2",
     "typescript": "^5.9.3",
     "vitest": "^3.2.7"
   },
